@@ -9,8 +9,18 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        navy:   "var(--navy)",
+        dark:   "var(--dark)",
+        orange: "var(--orange)",
+        teal:   "var(--teal)",
+        muted:  "var(--muted)",
+        gold:   "var(--gold)",
+        red:    "var(--red)",
+        green:  "var(--green)",
+      },
+      fontFamily: {
+        heading: ["var(--font-oswald)", "sans-serif"],
+        body:    ["var(--font-open-sans)", "sans-serif"],
       },
     },
   },

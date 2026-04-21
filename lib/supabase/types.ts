@@ -29,7 +29,8 @@ export type ScoreType =
   | 'peripheral_nerve' | 'spinal_tumor' | 'tethered_cord' | 'pediatric'
 
 // ----------------------------------------------------------------
-// Database — used to type the Supabase client
+// Database — typed Supabase client
+// Requires: Relationships on every table, Views, Functions on schema
 // ----------------------------------------------------------------
 
 export type Database = {
@@ -59,6 +60,7 @@ export type Database = {
           admin_user_id?: string | null
           updated_at?: string
         }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -100,6 +102,7 @@ export type Database = {
           last_review_date?: string | null
           updated_at?: string
         }
+        Relationships: []
       }
       cards: {
         Row: {
@@ -133,6 +136,7 @@ export type Database = {
           card_type?: CardType
           updated_at?: string
         }
+        Relationships: []
       }
       card_reviews: {
         Row: {
@@ -179,13 +183,14 @@ export type Database = {
           last_review?: string | null
           updated_at?: string
         }
+        Relationships: []
       }
       review_log: {
         Row: {
           id: string
           user_id: string
           card_id: string
-          rating: 1 | 2 | 3
+          rating: number
           fsrs_state: FsrsState
           scheduled_days: number
           elapsed_days: number
@@ -195,13 +200,19 @@ export type Database = {
           id?: string
           user_id: string
           card_id: string
-          rating: 1 | 2 | 3
+          rating: number
           fsrs_state: FsrsState
           scheduled_days?: number
           elapsed_days?: number
           reviewed_at?: string
         }
-        Update: never  // append-only
+        // Append-only table — no columns are updatable.
+        // RLS has no UPDATE policy; this type exists only to satisfy
+        // the Supabase GenericTable constraint.
+        Update: {
+          id?: string
+        }
+        Relationships: []
       }
       readiness_scores: {
         Row: {
@@ -225,6 +236,7 @@ export type Database = {
           percentile?: number | null
           computed_at?: string
         }
+        Relationships: []
       }
       credentials: {
         Row: {
@@ -250,6 +262,7 @@ export type Database = {
           expires_at?: string | null
           updated_at?: string
         }
+        Relationships: []
       }
       badges: {
         Row: {
@@ -264,7 +277,11 @@ export type Database = {
           badge_key: string
           earned_at?: string
         }
-        Update: never  // badges are permanent once earned
+        // Badges are permanent — no columns are updatable.
+        Update: {
+          id?: string
+        }
+        Relationships: []
       }
       ce_modules: {
         Row: {
@@ -292,6 +309,7 @@ export type Database = {
           content_url?: string | null
           updated_at?: string
         }
+        Relationships: []
       }
       ce_completions: {
         Row: {
@@ -320,6 +338,7 @@ export type Database = {
           certificate_url?: string | null
           updated_at?: string
         }
+        Relationships: []
       }
       subscriptions: {
         Row: {
@@ -355,6 +374,7 @@ export type Database = {
           cancel_at_period_end?: boolean
           updated_at?: string
         }
+        Relationships: []
       }
       share_links: {
         Row: {
@@ -386,8 +406,11 @@ export type Database = {
           show_badges?: boolean
           updated_at?: string
         }
+        Relationships: []
       }
     }
+    Views: Record<string, never>
+    Functions: Record<string, never>
     Enums: {
       career_stage: CareerStage
       modality: Modality
@@ -410,15 +433,15 @@ export type Database = {
 export type Tables<T extends keyof Database['public']['Tables']> =
   Database['public']['Tables'][T]['Row']
 
-export type Profile       = Tables<'profiles'>
-export type Employer      = Tables<'employers'>
-export type Card          = Tables<'cards'>
-export type CardReview    = Tables<'card_reviews'>
-export type ReviewLog     = Tables<'review_log'>
+export type Profile        = Tables<'profiles'>
+export type Employer       = Tables<'employers'>
+export type Card           = Tables<'cards'>
+export type CardReview     = Tables<'card_reviews'>
+export type ReviewLog      = Tables<'review_log'>
 export type ReadinessScore = Tables<'readiness_scores'>
-export type Credential    = Tables<'credentials'>
-export type Badge         = Tables<'badges'>
-export type CeModule      = Tables<'ce_modules'>
-export type CeCompletion  = Tables<'ce_completions'>
-export type Subscription  = Tables<'subscriptions'>
-export type ShareLink     = Tables<'share_links'>
+export type Credential     = Tables<'credentials'>
+export type Badge          = Tables<'badges'>
+export type CeModule       = Tables<'ce_modules'>
+export type CeCompletion   = Tables<'ce_completions'>
+export type Subscription   = Tables<'subscriptions'>
+export type ShareLink      = Tables<'share_links'>

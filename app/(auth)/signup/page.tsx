@@ -51,13 +51,13 @@ export default function SignupPage() {
       return
     }
 
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert({
-        id: authData.user.id,
-        email: authData.user.email!,
-        full_name: '',
-      })
+    const { error: profileError } = await (supabase as any)
+  .from('profiles')
+  .insert({
+    id: authData.user.id,
+    email: authData.user.email!,
+    full_name: '',
+  })
 
     if (profileError) {
       setServerError(profileError.message)

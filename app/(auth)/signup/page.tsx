@@ -38,7 +38,7 @@ export default function SignupPage() {
       email: data.email,
       password: data.password,
       options: {
-        emailRedirectTo: `${window.location.origin}/onboarding`,
+        emailRedirectTo: `https://calibrate-ashy.vercel.app/onboarding`,
       },
     })
 

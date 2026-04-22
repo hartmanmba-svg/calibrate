@@ -54,50 +54,32 @@ export async function POST(request: NextRequest) {
         ? session.customer
         : session.customer?.id ?? null
 
-      if (session.mode === 'payment') {
-        // Lifetime — one-time purchase, no subscription object
-        await admin.from('subscriptions').upsert(
-          {
-            user_id: userId,
-            stripe_customer_id: customerId,
-            stripe_subscription_id: null,
-            plan: 'lifetime',
-            status: 'active',
-            current_period_end: null,
-            cancel_at_period_end: false,
-            updated_at: now,
-          },
-          { onConflict: 'user_id' }
-        )
-      } else {
-        // Recurring subscription
-        const subId = typeof session.subscription === 'string'
-          ? session.subscription
-          : null
+      const subId = typeof session.subscription === 'string'
+        ? session.subscription
+        : null
 
-        if (!subId) break
+      if (!subId) break
 
-        const sub = await stripe.subscriptions.retrieve(subId, {
-          expand: ['items'],
-        })
-        const periodEnd = sub.items.data[0]?.current_period_end ?? null
+      const sub = await stripe.subscriptions.retrieve(subId, {
+        expand: ['items'],
+      })
+      const periodEnd = sub.items.data[0]?.current_period_end ?? null
 
-        await admin.from('subscriptions').upsert(
-          {
-            user_id: userId,
-            stripe_customer_id: customerId,
-            stripe_subscription_id: sub.id,
-            plan,
-            status: toSubStatus(sub.status),
-            current_period_end: periodEnd
-              ? new Date(periodEnd * 1000).toISOString()
-              : null,
-            cancel_at_period_end: sub.cancel_at_period_end,
-            updated_at: now,
-          },
-          { onConflict: 'user_id' }
-        )
-      }
+      await admin.from('subscriptions').upsert(
+        {
+          user_id: userId,
+          stripe_customer_id: customerId,
+          stripe_subscription_id: sub.id,
+          plan,
+          status: toSubStatus(sub.status),
+          current_period_end: periodEnd
+            ? new Date(periodEnd * 1000).toISOString()
+            : null,
+          cancel_at_period_end: sub.cancel_at_period_end,
+          updated_at: now,
+        },
+        { onConflict: 'user_id' }
+      )
       break
     }
 

@@ -28,8 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const isActive =
     subscription?.status === 'active' ||
-    subscription?.status === 'trialing' ||
-    subscription?.plan === 'lifetime'
+    subscription?.status === 'trialing'
 
   return (
     <div className="min-h-screen bg-dark flex flex-col">

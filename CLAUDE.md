@@ -143,9 +143,8 @@ Always show next review interval below each button.
 ## Stripe subscription tiers
 
 ```
-Monthly:  $14.99/mo   — plan: 'monthly'
-Annual:   $107.88/yr  — plan: 'annual'   (shown as $8.99/mo, saves 40%)
-Lifetime: $149 once   — plan: 'lifetime'
+Monthly:  $12.99/mo   — plan: 'monthly'
+Annual:   $107.88/yr  — plan: 'annual'   (shown as $8.99/mo, saves ~31%)
 Team:     $9.99/seat/mo — plan: 'team'
 ```
 
@@ -232,7 +231,6 @@ STRIPE_SECRET_KEY
 STRIPE_WEBHOOK_SECRET
 STRIPE_PRICE_MONTHLY
 STRIPE_PRICE_ANNUAL
-STRIPE_PRICE_LIFETIME
 STRIPE_PRICE_TEAM
 RESEND_API_KEY
 NEXT_PUBLIC_APP_URL

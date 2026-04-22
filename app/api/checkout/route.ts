@@ -3,12 +3,11 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { stripe } from '@/lib/stripe'
 
-type Plan = 'monthly' | 'annual' | 'lifetime'
+type Plan = 'monthly' | 'annual'
 
 const PRICE_IDS: Record<Plan, string | undefined> = {
   monthly: process.env.STRIPE_PRICE_MONTHLY,
   annual: process.env.STRIPE_PRICE_ANNUAL,
-  lifetime: process.env.STRIPE_PRICE_LIFETIME,
 }
 
 export async function POST(request: NextRequest) {
@@ -26,7 +25,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json() as { plan?: string }
   const plan = body.plan as Plan | undefined
 
-  if (!plan || !['monthly', 'annual', 'lifetime'].includes(plan)) {
+  if (!plan || !['monthly', 'annual'].includes(plan)) {
     return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
   }
 
@@ -59,18 +58,6 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Create checkout session ───────────────────────────────────
-  if (plan === 'lifetime') {
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      customer: customerId,
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${baseUrl}/dashboard?checkout=success`,
-      cancel_url: `${baseUrl}/pricing`,
-      metadata: { user_id: user.id, plan: 'lifetime' },
-    })
-    return NextResponse.json({ url: session.url })
-  }
-
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     customer: customerId,

@@ -87,7 +87,7 @@ export default async function PricingPage() {
       </div>
 
       {/* Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-3xl">
 
         {/* Free */}
         <div className="bg-navy border border-[rgba(255,255,255,0.10)] rounded-2xl p-6 flex flex-col">
@@ -128,7 +128,7 @@ export default async function PricingPage() {
           <div>
             <p className="font-body text-xs text-muted uppercase tracking-widest mb-3">Monthly</p>
             <div className="flex items-end gap-1">
-              <span className="font-heading text-4xl text-white">$14.99</span>
+              <span className="font-heading text-4xl text-white">$12.99</span>
               <span className="font-body text-muted text-sm mb-1">/mo</span>
             </div>
             <p className="font-body text-xs text-muted mt-1">Billed monthly</p>
@@ -195,33 +195,6 @@ export default async function PricingPage() {
           </div>
         </div>
 
-        {/* Lifetime */}
-        <div className="bg-navy border border-[rgba(255,255,255,0.10)] rounded-2xl p-6 flex flex-col">
-          <div>
-            <p className="font-body text-xs text-muted uppercase tracking-widest mb-3">Lifetime</p>
-            <div className="flex items-end gap-1">
-              <span className="font-heading text-4xl text-white">$149</span>
-            </div>
-            <p className="font-body text-xs text-muted mt-1">Pay once, yours forever</p>
-          </div>
-          <FeatureList features={[...PAID_FEATURES, 'All future features included']} />
-          <div className="mt-auto pt-6">
-            {currentPlan === 'lifetime' ? (
-              <div className="w-full text-center font-heading py-3 rounded-xl
-                bg-teal/10 border border-teal/30 text-teal text-sm">
-                Current plan
-              </div>
-            ) : (
-              <CheckoutButton
-                plan="lifetime"
-                label="Buy lifetime access"
-                className="w-full font-heading py-3 rounded-xl text-sm
-                  bg-dark border border-[rgba(255,255,255,0.10)] text-white
-                  hover:border-white/20 transition"
-              />
-            )}
-          </div>
-        </div>
       </div>
 
       {/* Footer note */}

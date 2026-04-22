@@ -33,7 +33,7 @@ const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 const STUDY_MODES = [
   {
-    href: '/study',
+    href: '/study/flashcards',
     title: 'Flashcards',
     description: 'Spaced repetition — your due cards',
     icon: '🃏',

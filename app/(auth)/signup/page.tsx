@@ -64,17 +64,17 @@ export default function SignupPage() {
       return
     }
 
-    await supabase
-      .from('user_stats')
-      .insert({ user_id: authData.user.id })
+    await (supabase as any)
+  .from('user_stats')
+  .insert({ user_id: authData.user.id })
 
-    await supabase
-      .from('subscriptions')
-      .insert({
-        user_id: authData.user.id,
-        plan: 'free',
-        status: 'active',
-      })
+await (supabase as any)
+  .from('subscriptions')
+  .insert({
+    user_id: authData.user.id,
+    plan: 'free',
+    status: 'active',
+  })
 
     if (authData.session) {
       router.push('/onboarding')

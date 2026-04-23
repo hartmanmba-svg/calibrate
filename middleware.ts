@@ -1,7 +1,3 @@
-const { pathname } = request.nextUrl
-if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
-  return NextResponse.next()
-}
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { Database } from '@/lib/supabase/types'

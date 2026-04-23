@@ -185,19 +185,28 @@ export default async function ProgressPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Compute fresh scores and cache to readiness_scores table
-  const { orScore, specialtyScores, reviewCount } = await computeAndCacheScores()
+  // Compute fresh scores — never throw; show empty state on any error
+  let orScore: number | null = null
+  let specialtyScores: Partial<Record<CaseType, number>> = {}
+  let reviewCount = 0
+  try {
+    ;({ orScore, specialtyScores, reviewCount } = await computeAndCacheScores())
+  } catch {
+    // DB error or env-var misconfiguration — render with empty data
+  }
 
   // Profile: level, XP, streak, career stage
   const { data: profile } = await supabase
     .from('profiles')
     .select('xp, level, streak, career_stage')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
-  if (!profile) redirect('/login')
-
-  const careerStage = profile.career_stage as CareerStage
+  // Use safe defaults when profile row doesn't exist yet
+  const xp = profile?.xp ?? 0
+  const level = profile?.level ?? 1
+  const streak = profile?.streak ?? 0
+  const careerStage = (profile?.career_stage ?? 'student') as CareerStage
 
   return (
     <div className="flex flex-col gap-8 max-w-3xl mx-auto">
@@ -227,7 +236,7 @@ export default async function ProgressPage() {
           )}
         </div>
 
-        <XpCard xp={profile.xp} level={profile.level} streak={profile.streak} />
+        <XpCard xp={xp} level={level} streak={streak} />
       </div>
 
       {/* Specialty scores */}

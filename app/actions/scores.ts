@@ -93,7 +93,7 @@ export async function computeAndCacheScores(): Promise<ComputedScores> {
         user_id: user.id,
         score_type: 'or_readiness' as ScoreType,
         score: orScore,
-        percentile: null, // computed by nightly cron once cohort ≥ 50
+        reviews_used: reviews.length,
         computed_at: nowIso,
       },
       { onConflict: 'user_id,score_type' }
@@ -106,7 +106,7 @@ export async function computeAndCacheScores(): Promise<ComputedScores> {
       user_id: user.id,
       score_type: scoreType as ScoreType,
       score,
-      percentile: null,
+      reviews_used: reviews.filter((r) => r.cards?.case_type === scoreType).length,
       computed_at: nowIso,
     })
   )

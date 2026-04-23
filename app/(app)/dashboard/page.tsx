@@ -129,6 +129,8 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-8">
 
+      <h1 style={{ color: 'red', fontSize: 32 }}>DASHBOARD LOADED</h1>
+
       {/* ── Greeting ── */}
       <div>
         <h1 className="font-heading text-3xl text-white">

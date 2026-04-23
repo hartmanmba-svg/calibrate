@@ -53,7 +53,7 @@ export default async function StudyPage() {
     const { data: dueCardRows } = await supabase
       .from('cards')
       .select('id, modality')
-      .in('id', [...dueCardIds])
+      .in('id', Array.from(dueCardIds))
 
     dueByModality = (dueCardRows ?? []).reduce<Record<string, number>>((acc, c) => {
       acc[c.modality] = (acc[c.modality] ?? 0) + 1

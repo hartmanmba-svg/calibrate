@@ -1,15 +1,16 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import type { Modality, CaseType, CardType } from '@/lib/supabase/types'
 
 type CardInsert = {
   id: string
   front: string
   back: string
   explanation: string | null
-  modality: string
-  case_type: string
-  card_type: string
+  modality: Modality
+  case_type: CaseType
+  card_type: CardType
 }
 
 const SEED_CARDS: CardInsert[] = [

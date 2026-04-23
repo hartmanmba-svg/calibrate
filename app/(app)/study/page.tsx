@@ -1,4 +1,3 @@
-import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import type { Modality } from '@/lib/supabase/types'
 
@@ -24,10 +23,9 @@ const MODALITY_META: Record<Modality, { label: string; description: string; icon
 export default async function StudyPage() {
   const supabase = createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const { data: { user } } = await supabase.auth.getUser()
+  // No redirect — middleware handles unauthenticated users.
+  const uid = user?.id ?? ''
 
   // Total card count per modality
   const { data: allCards } = await supabase
@@ -43,7 +41,7 @@ export default async function StudyPage() {
   const { data: dueReviews } = await supabase
     .from('card_reviews')
     .select('card_id')
-    .eq('user_id', user.id)
+    .eq('user_id', uid)
     .lte('due', new Date().toISOString())
 
   const dueCardIds = new Set((dueReviews ?? []).map((r) => r.card_id))

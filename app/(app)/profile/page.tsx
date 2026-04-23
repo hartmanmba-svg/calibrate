@@ -1,4 +1,3 @@
-import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { ProfileForm } from './ProfileForm'
 import type { CareerStage } from '@/lib/supabase/types'
@@ -6,15 +5,14 @@ import type { CareerStage } from '@/lib/supabase/types'
 export default async function ProfilePage() {
   const supabase = createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const { data: { user } } = await supabase.auth.getUser()
+  // No redirect — middleware handles unauthenticated users.
+  const uid = user?.id ?? ''
 
   const { data: profile } = await supabase
     .from('profiles')
     .select('full_name, career_stage, xp, level, streak')
-    .eq('id', user.id)
+    .eq('id', uid)
     .maybeSingle()
 
   const fullName    = profile?.full_name    ?? null
@@ -52,7 +50,7 @@ export default async function ProfilePage() {
           Account details
         </h2>
         <ProfileForm
-          email={user.email ?? ''}
+          email={user?.email ?? ''}
           fullName={fullName}
           careerStage={careerStage}
         />

@@ -1,4 +1,3 @@
-import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { computeXpProgress } from '@/lib/xp'
 import { seedCards } from '@/app/actions/seed'
@@ -77,16 +76,18 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) redirect('/login')
+  // No redirect — middleware handles unauthenticated users.
+  // If getUser() fails mid-refresh, show safe defaults rather than looping.
+  const uid = user?.id ?? ''
 
   // Seed starter cards on first load — no-op if cards already exist
-  await seedCards().catch(() => {})
+  if (uid) await seedCards().catch(() => {})
 
   // Fetch profile — maybeSingle so a missing row never throws
   const { data: profile } = await supabase
     .from('profiles')
     .select('full_name, xp, level, streak, streak_shield, last_review_date, career_stage')
-    .eq('id', user.id)
+    .eq('id', uid)
     .maybeSingle()
 
   const xp           = profile?.xp           ?? 0
@@ -100,7 +101,7 @@ export default async function DashboardPage() {
   const { count: dueCount } = await supabase
     .from('card_reviews')
     .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id)
+    .eq('user_id', uid)
     .lte('due', new Date().toISOString())
 
   // Review activity for the last 7 days
@@ -111,7 +112,7 @@ export default async function DashboardPage() {
   const { data: recentReviews } = await supabase
     .from('review_log')
     .select('reviewed_at')
-    .eq('user_id', user.id)
+    .eq('user_id', uid)
     .gte('reviewed_at', sevenDaysAgo.toISOString())
 
   const reviewedDates = new Set(

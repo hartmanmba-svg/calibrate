@@ -1,4 +1,3 @@
-import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { computeAndCacheScores } from '@/app/actions/scores'
 import { CASE_TYPES, CASE_TYPE_LABELS } from '@/lib/case-types'
@@ -179,10 +178,9 @@ function SpecialtyGrid({ specialtyScores }: { specialtyScores: Partial<Record<Ca
 
 export default async function ProgressPage() {
   const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const { data: { user } } = await supabase.auth.getUser()
+  // No redirect — middleware handles unauthenticated users.
+  const uid = user?.id ?? ''
 
   // Compute fresh scores — never throw; show empty state on any error
   let orScore: number | null = null
@@ -198,7 +196,7 @@ export default async function ProgressPage() {
   const { data: profile } = await supabase
     .from('profiles')
     .select('xp, level, streak, career_stage')
-    .eq('id', user.id)
+    .eq('id', uid)
     .maybeSingle()
 
   // Use safe defaults when profile row doesn't exist yet

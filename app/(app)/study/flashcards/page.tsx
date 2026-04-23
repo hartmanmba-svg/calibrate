@@ -1,4 +1,3 @@
-import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import {
   FSRS,
@@ -57,10 +56,9 @@ function computeIntervalLabels(
 export default async function FlashcardsPage() {
   const supabase = createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const { data: { user } } = await supabase.auth.getUser()
+  // No redirect — middleware handles unauthenticated users.
+  const uid = user?.id ?? ''
 
   const now = new Date()
   const SESSION_SIZE = 20
@@ -72,7 +70,7 @@ export default async function FlashcardsPage() {
     .select(
       'card_id, due, stability, difficulty, elapsed_days, scheduled_days, reps, lapses, state, last_review, cards(id, front, back, explanation, modality, case_type, card_type)'
     )
-    .eq('user_id', user.id)
+    .eq('user_id', uid)
     .lte('due', now.toISOString())
     .order('due', { ascending: true })
     .limit(SESSION_SIZE)
@@ -137,7 +135,7 @@ export default async function FlashcardsPage() {
     const { data: reviewedIds } = await supabase
       .from('card_reviews')
       .select('card_id')
-      .eq('user_id', user.id)
+      .eq('user_id', uid)
 
     const seen = (reviewedIds ?? []).map((r) => r.card_id)
 
@@ -177,7 +175,7 @@ export default async function FlashcardsPage() {
       .select(
         'card_id, due, stability, difficulty, elapsed_days, scheduled_days, reps, lapses, state, last_review, cards(id, front, back, explanation, modality, case_type, card_type)'
       )
-      .eq('user_id', user.id)
+      .eq('user_id', uid)
       .gt('due', now.toISOString())
       .order('due', { ascending: true })
       .limit(SESSION_SIZE)

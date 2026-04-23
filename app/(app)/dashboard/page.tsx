@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { computeXpProgress } from '@/lib/xp'
+import { seedCards } from '@/app/actions/seed'
 
 // ----------------------------------------------------------------
 // Helpers
@@ -78,6 +79,9 @@ export default async function DashboardPage() {
   } = await supabase.auth.getUser()
 
   if (!user) redirect('/login')
+
+  // Seed starter cards on first load — no-op if cards already exist
+  await seedCards().catch(() => {})
 
   // Fetch profile
   const { data: profile } = await supabase

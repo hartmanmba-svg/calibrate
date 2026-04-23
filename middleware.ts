@@ -1,3 +1,7 @@
+const { pathname } = request.nextUrl
+if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
+  return NextResponse.next()
+}
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { Database } from '@/lib/supabase/types'
@@ -16,6 +20,7 @@ const PROTECTED_PATHS = [
 
 // Auth pages — redirect to dashboard if already signed in
 const AUTH_PATHS = ['/login', '/signup', '/onboarding']
+const PUBLIC_PATHS = ['/auth', '/api']
 
 function isProtected(pathname: string) {
   return PROTECTED_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))

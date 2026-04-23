@@ -1,13 +1,11 @@
-import Link from 'next/link'
-
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div>
       <header>
-        <Link href="/dashboard">Dashboard</Link>
-        <Link href="/study">Study</Link>
-        <Link href="/progress">Progress</Link>
-        <Link href="/profile">Profile</Link>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/study">Study</a>
+        <a href="/progress">Progress</a>
+        <a href="/profile">Profile</a>
       </header>
       <main>{children}</main>
     </div>

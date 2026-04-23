@@ -83,14 +83,21 @@ export default async function DashboardPage() {
   // Seed starter cards on first load — no-op if cards already exist
   await seedCards().catch(() => {})
 
-  // Fetch profile
+  // Fetch profile — use maybeSingle so a missing row never throws or
+  // redirects to /login (which would loop: login → dashboard → login).
   const { data: profile } = await supabase
     .from('profiles')
     .select('full_name, xp, level, streak, streak_shield, last_review_date, career_stage')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
-  if (!profile) redirect('/login')
+  // Safe defaults for brand-new users whose profile row doesn't exist yet
+  const xp           = profile?.xp           ?? 0
+  const level        = profile?.level        ?? 1
+  const streak       = profile?.streak       ?? 0
+  const streakShield = profile?.streak_shield ?? false
+  const careerStage  = profile?.career_stage ?? 'student'
+  const fullName     = profile?.full_name    ?? null
 
   // Fetch review activity for the last 7 days
   const sevenDaysAgo = new Date()
@@ -109,12 +116,9 @@ export default async function DashboardPage() {
   )
 
   const days = lastSevenDays()
-  const { currentLevelXp, nextLevelXp, progressPct } = computeXpProgress(
-    profile.xp,
-    profile.level
-  )
+  const { currentLevelXp, nextLevelXp, progressPct } = computeXpProgress(xp, level)
 
-  const firstName = profile.full_name?.split(' ')[0] ?? 'there'
+  const firstName = fullName?.split(' ')[0] ?? 'there'
   const greeting = getGreeting()
 
   return (
@@ -126,7 +130,7 @@ export default async function DashboardPage() {
           {greeting}, {firstName}!
         </h1>
         <p className="font-body text-muted text-sm mt-1 capitalize">
-          {profile.career_stage.replace('_', ' ')} · Keep sharpening your edge.
+          {careerStage.replace('_', ' ')} · Keep sharpening your edge.
         </p>
       </div>
 
@@ -138,21 +142,19 @@ export default async function DashboardPage() {
             <span className="text-3xl">🔥</span>
             <div>
               <p className="font-heading text-2xl text-white leading-none">
-                {profile.streak}
+                {streak}
               </p>
-              <p className="font-body text-xs text-muted mt-0.5">
-                {profile.streak === 1 ? 'day streak' : 'day streak'}
-              </p>
+              <p className="font-body text-xs text-muted mt-0.5">day streak</p>
             </div>
           </div>
 
           {/* Level */}
           <div className="text-right">
             <p className="font-heading text-sm text-teal uppercase tracking-wider">
-              Level {profile.level}
+              Level {level}
             </p>
             <p className="font-body text-xs text-muted mt-0.5">
-              {profile.xp.toLocaleString()} XP total
+              {xp.toLocaleString()} XP total
             </p>
           </div>
         </div>
@@ -164,7 +166,7 @@ export default async function DashboardPage() {
               {currentLevelXp} / {nextLevelXp} XP
             </span>
             <span className="font-body text-xs text-teal">
-              {nextLevelXp - currentLevelXp} XP to Level {profile.level + 1}
+              {nextLevelXp - currentLevelXp} XP to Level {level + 1}
             </span>
           </div>
           <div className="h-2.5 bg-dark rounded-full overflow-hidden">
@@ -238,7 +240,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Streak shield badge if earned */}
-        {profile.streak_shield && (
+        {streakShield && (
           <p className="font-body text-xs text-gold mt-4 flex items-center gap-1.5">
             <span>🛡️</span> Streak shield active — one missed day protected
           </p>

@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 const schema = z.object({
@@ -16,7 +16,6 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>
 
 function LoginForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const next = searchParams.get('next') ?? '/dashboard'
   const supabase = createClient()
@@ -41,8 +40,10 @@ function LoginForm() {
       return
     }
 
-    router.push(next)
-    router.refresh()
+    // Hard navigation so the browser sends freshly-set auth cookies on
+    // the next request — router.push() is client-side and can race
+    // against cookie writes from createBrowserClient.
+    window.location.href = next
   }
 
   return (

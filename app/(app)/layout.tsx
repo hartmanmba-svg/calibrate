@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { SignOutButton } from './components/SignOutButton'
-import { NavLinks } from './components/NavLinks'
+import { NavLinks, MobileNav } from './components/NavLinks'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
@@ -64,7 +64,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {children}
       </main>
 
-      {/* Bottom nav spacer on mobile — matches the fixed NavLinks tab bar */}
+      {/* Mobile bottom tab bar — outside the header so it is never a flex child */}
+      <MobileNav />
+
+      {/* Spacer so content isn't obscured by the fixed MobileNav */}
       <div className="h-16 md:hidden" />
     </div>
   )

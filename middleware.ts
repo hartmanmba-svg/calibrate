@@ -3,6 +3,28 @@ import { NextResponse, type NextRequest } from 'next/server'
 import type { Database } from '@/lib/supabase/types'
 
 // ----------------------------------------------------------------
+// Stale-cookie cleanup
+// ----------------------------------------------------------------
+
+// When a Supabase project is replaced the old auth cookies (keyed on the old
+// project ref) linger in the browser and confuse getUser() — it sees two
+// competing sb-* tokens and can fail to resolve the session.  Delete any
+// cookie whose name starts with the OLD project ref on every response so
+// users never need to manually clear cookies after a project switch.
+const STALE_COOKIE_PREFIX = 'sb-ccyocwksaqmaszezmwiu'
+
+function purgeStale(
+  request: NextRequest,
+  response: NextResponse,
+): void {
+  request.cookies.getAll().forEach(({ name }) => {
+    if (name.startsWith(STALE_COOKIE_PREFIX)) {
+      response.cookies.delete(name)
+    }
+  })
+}
+
+// ----------------------------------------------------------------
 // Route classification
 // ----------------------------------------------------------------
 
@@ -88,10 +110,10 @@ export async function middleware(request: NextRequest) {
     loginUrl.pathname = '/login'
     loginUrl.searchParams.set('next', pathname)
     const redirectResponse = NextResponse.redirect(loginUrl)
-    // Copy any refreshed session cookies so they reach the browser
     supabaseResponse.cookies.getAll().forEach(({ name, value, ...opts }) =>
       redirectResponse.cookies.set(name, value, opts)
     )
+    purgeStale(request, redirectResponse)
     return redirectResponse
   }
 
@@ -104,9 +126,11 @@ export async function middleware(request: NextRequest) {
     supabaseResponse.cookies.getAll().forEach(({ name, value, ...opts }) =>
       redirectResponse.cookies.set(name, value, opts)
     )
+    purgeStale(request, redirectResponse)
     return redirectResponse
   }
 
+  purgeStale(request, supabaseResponse)
   return supabaseResponse
 }
 

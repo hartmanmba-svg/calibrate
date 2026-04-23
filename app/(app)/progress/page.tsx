@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { computeAndCacheScores } from '@/app/actions/scores'
 import { CASE_TYPES, CASE_TYPE_LABELS } from '@/lib/case-types'
@@ -227,12 +226,12 @@ export default async function ProgressPage() {
         <div className="bg-navy border border-[rgba(255,255,255,0.10)] rounded-2xl p-8 flex flex-col items-center gap-2">
           <ReadinessRing score={orScore} reviewCount={reviewCount} />
           {orScore === null && (
-            <Link
+            <a
               href="/study/flashcards"
               className="mt-2 font-body text-xs text-orange hover:underline"
             >
               Start studying to unlock →
-            </Link>
+            </a>
           )}
         </div>
 

@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { computeXpProgress } from '@/lib/xp'
 import { seedCards } from '@/app/actions/seed'
@@ -42,18 +41,18 @@ const STUDY_MODES = [
     badge: null,
   },
   {
-    href: '/study?mode=quiz',
-    title: 'Timed Quiz',
-    description: '10 questions, 60 seconds each',
-    icon: '⏱️',
+    href: '/study',
+    title: 'Browse Decks',
+    description: 'All topics by modality',
+    icon: '📚',
     accent: 'border-teal/40 hover:border-teal',
     badge: null,
   },
   {
-    href: '/study?mode=drill',
-    title: 'Topic Drill',
-    description: 'Focus on one modality or case type',
-    icon: '🎯',
+    href: '/progress',
+    title: 'Readiness',
+    description: 'OR readiness score + specialties',
+    icon: '📊',
     accent: 'border-green/40 hover:border-green',
     badge: null,
   },
@@ -83,15 +82,13 @@ export default async function DashboardPage() {
   // Seed starter cards on first load — no-op if cards already exist
   await seedCards().catch(() => {})
 
-  // Fetch profile — use maybeSingle so a missing row never throws or
-  // redirects to /login (which would loop: login → dashboard → login).
+  // Fetch profile — maybeSingle so a missing row never throws
   const { data: profile } = await supabase
     .from('profiles')
     .select('full_name, xp, level, streak, streak_shield, last_review_date, career_stage')
     .eq('id', user.id)
     .maybeSingle()
 
-  // Safe defaults for brand-new users whose profile row doesn't exist yet
   const xp           = profile?.xp           ?? 0
   const level        = profile?.level        ?? 1
   const streak       = profile?.streak       ?? 0
@@ -99,7 +96,14 @@ export default async function DashboardPage() {
   const careerStage  = profile?.career_stage ?? 'student'
   const fullName     = profile?.full_name    ?? null
 
-  // Fetch review activity for the last 7 days
+  // Due card count
+  const { count: dueCount } = await supabase
+    .from('card_reviews')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .lte('due', new Date().toISOString())
+
+  // Review activity for the last 7 days
   const sevenDaysAgo = new Date()
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
   sevenDaysAgo.setHours(0, 0, 0, 0)
@@ -110,7 +114,6 @@ export default async function DashboardPage() {
     .eq('user_id', user.id)
     .gte('reviewed_at', sevenDaysAgo.toISOString())
 
-  // Build set of dates that have at least one review
   const reviewedDates = new Set(
     (recentReviews ?? []).map((r) => r.reviewed_at.slice(0, 10))
   )
@@ -120,6 +123,7 @@ export default async function DashboardPage() {
 
   const firstName = fullName?.split(' ')[0] ?? 'there'
   const greeting = getGreeting()
+  const due = dueCount ?? 0
 
   return (
     <div className="space-y-8">
@@ -134,6 +138,22 @@ export default async function DashboardPage() {
         </p>
       </div>
 
+      {/* ── Due cards CTA ── */}
+      <section className="bg-navy rounded-2xl p-6 border border-orange/25 flex items-center justify-between gap-4">
+        <div>
+          <p className="font-heading text-4xl text-white">{due}</p>
+          <p className="font-body text-sm text-muted mt-1">
+            {due === 1 ? 'card due for review' : 'cards due for review'}
+          </p>
+        </div>
+        <a
+          href="/study/flashcards"
+          className="shrink-0 bg-orange hover:bg-orange/90 text-white font-heading text-sm px-5 py-3 rounded-xl transition"
+        >
+          Start Studying →
+        </a>
+      </section>
+
       {/* ── Streak & XP card ── */}
       <section className="bg-navy rounded-2xl p-6 border border-[rgba(255,255,255,0.10)]">
         <div className="flex items-center justify-between mb-5">
@@ -141,9 +161,7 @@ export default async function DashboardPage() {
           <div className="flex items-center gap-3">
             <span className="text-3xl">🔥</span>
             <div>
-              <p className="font-heading text-2xl text-white leading-none">
-                {streak}
-              </p>
+              <p className="font-heading text-2xl text-white leading-none">{streak}</p>
               <p className="font-body text-xs text-muted mt-0.5">day streak</p>
             </div>
           </div>
@@ -163,10 +181,10 @@ export default async function DashboardPage() {
         <div>
           <div className="flex justify-between mb-1.5">
             <span className="font-body text-xs text-muted">
-              {currentLevelXp} / {nextLevelXp} XP
+              {currentLevelXp.toLocaleString()} / {nextLevelXp.toLocaleString()} XP
             </span>
             <span className="font-body text-xs text-teal">
-              {nextLevelXp - currentLevelXp} XP to Level {level + 1}
+              {(nextLevelXp - currentLevelXp).toLocaleString()} XP to Level {level + 1}
             </span>
           </div>
           <div className="h-2.5 bg-dark rounded-full overflow-hidden">
@@ -176,19 +194,25 @@ export default async function DashboardPage() {
             />
           </div>
         </div>
+
+        {streakShield && (
+          <p className="font-body text-xs text-gold mt-4 flex items-center gap-1.5">
+            <span>🛡️</span> Streak shield active — one missed day protected
+          </p>
+        )}
       </section>
 
-      {/* ── Study modes ── */}
+      {/* ── Quick-access study modes ── */}
       <section>
-        <h2 className="font-heading text-lg text-teal uppercase tracking-wider mb-4">
-          Study
+        <h2 className="font-heading text-sm text-teal uppercase tracking-wider mb-4">
+          Quick access
         </h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {STUDY_MODES.map((mode) => (
-            <Link
+            <a
               key={mode.title}
               href={mode.href}
-              className={`relative bg-navy rounded-xl p-5 border transition group ${mode.accent}`}
+              className={`relative bg-navy rounded-xl p-5 border transition ${mode.accent}`}
             >
               {mode.badge && (
                 <span className="absolute top-3 right-3 bg-muted/20 text-muted font-body text-[10px] px-1.5 py-0.5 rounded-full">
@@ -196,18 +220,14 @@ export default async function DashboardPage() {
                 </span>
               )}
               <div className="text-3xl mb-3">{mode.icon}</div>
-              <p className="font-heading text-white text-base leading-tight">
-                {mode.title}
-              </p>
-              <p className="font-body text-muted text-xs mt-1 leading-snug">
-                {mode.description}
-              </p>
-            </Link>
+              <p className="font-heading text-white text-base leading-tight">{mode.title}</p>
+              <p className="font-body text-muted text-xs mt-1 leading-snug">{mode.description}</p>
+            </a>
           ))}
         </div>
       </section>
 
-      {/* ── 7-day streak row ── */}
+      {/* ── 7-day activity row ── */}
       <section className="bg-navy rounded-2xl p-6 border border-[rgba(255,255,255,0.10)]">
         <h2 className="font-heading text-sm text-teal uppercase tracking-wider mb-5">
           This week
@@ -222,9 +242,7 @@ export default async function DashboardPage() {
 
             return (
               <div key={dateStr} className="flex flex-col items-center gap-1.5">
-                <span className="font-body text-[10px] text-muted uppercase">
-                  {dayLabel}
-                </span>
+                <span className="font-body text-[10px] text-muted uppercase">{dayLabel}</span>
                 <div
                   className={`w-9 h-9 rounded-full flex items-center justify-center text-lg
                     ${hasReview ? 'bg-orange/15' : 'bg-dark'}
@@ -238,13 +256,6 @@ export default async function DashboardPage() {
             )
           })}
         </div>
-
-        {/* Streak shield badge if earned */}
-        {streakShield && (
-          <p className="font-body text-xs text-gold mt-4 flex items-center gap-1.5">
-            <span>🛡️</span> Streak shield active — one missed day protected
-          </p>
-        )}
       </section>
 
     </div>

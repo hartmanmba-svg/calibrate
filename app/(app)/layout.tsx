@@ -1,4 +1,4 @@
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
+export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-dark flex flex-col">
 
@@ -12,6 +12,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <a href="/study"     className="font-body text-sm text-muted hover:text-white transition">Study</a>
           <a href="/progress"  className="font-body text-sm text-muted hover:text-white transition">Progress</a>
           <a href="/profile"   className="font-body text-sm text-muted hover:text-white transition">Profile</a>
+          <a href="/auth/signout" className="font-body text-sm text-muted hover:text-red transition">Sign out</a>
         </nav>
       </header>
 
@@ -23,10 +24,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       {/* ── Mobile bottom tab bar ── */}
       <nav className="sm:hidden fixed bottom-0 inset-x-0 bg-navy border-t border-[rgba(255,255,255,0.08)] flex">
         {[
-          { href: '/dashboard', label: 'Home',     icon: '🏠' },
-          { href: '/study',     label: 'Study',    icon: '📚' },
-          { href: '/progress',  label: 'Progress', icon: '📊' },
-          { href: '/profile',   label: 'Profile',  icon: '👤' },
+          { href: '/dashboard',   label: 'Home',     icon: '🏠' },
+          { href: '/study',       label: 'Study',    icon: '📚' },
+          { href: '/progress',    label: 'Progress', icon: '📊' },
+          { href: '/profile',     label: 'Profile',  icon: '👤' },
         ].map(({ href, label, icon }) => (
           <a
             key={href}

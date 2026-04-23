@@ -89,16 +89,16 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // ── 2. Refresh the session. Must be getUser(), not getSession().
-  //       Wrap in try/catch so a Supabase network error or missing env
-  //       var never causes an infinite redirect loop — just pass through.
+  // ── 2. Check for an active session.
+  //       getSession() reads from the cookie without a network round-trip,
+  //       so it returns consistently even when the access token is mid-refresh.
+  //       Pages that need hard security still call getUser() themselves.
   let user = null
   try {
-    const { data, error } = await supabase.auth.getUser()
-    if (!error) user = data.user
+    const { data } = await supabase.auth.getSession()
+    user = data.session?.user ?? null
   } catch {
-    // Network error or misconfiguration — treat as unauthenticated and
-    // let the request continue so /login renders rather than looping.
+    // Misconfiguration — pass through so /login renders rather than looping.
     return supabaseResponse
   }
 

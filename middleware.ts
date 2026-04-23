@@ -146,9 +146,9 @@ export const config = {
      * - _next/image   (image optimisation)
      * - favicon.ico
      * - public assets (svg, png, jpg, jpeg, gif, webp)
-     * - /auth/callback (Supabase OAuth / magic-link exchange — must
-     *   process the code before getUser() will succeed)
+     * - /auth/callback (Supabase OAuth / magic-link exchange)
+     * - /auth/signout  (clears the session before redirect)
      */
-    '/((?!_next/static|_next/image|favicon.ico|auth/callback|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|auth/callback|auth/signout|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

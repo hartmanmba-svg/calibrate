@@ -2,7 +2,6 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { SignOutButton } from './components/SignOutButton'
-import { NavLinks, MobileNav } from './components/NavLinks'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
@@ -53,7 +52,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </span>
           </Link>
 
-          <NavLinks />
+          {/* Desktop nav */}
+          <nav className="hidden md:flex items-center gap-6">
+            <Link href="/dashboard" className="font-body text-sm text-muted hover:text-white transition">Dashboard</Link>
+            <Link href="/study"     className="font-body text-sm text-muted hover:text-white transition">Study</Link>
+            <Link href="/progress"  className="font-body text-sm text-muted hover:text-white transition">Progress</Link>
+            <Link href="/profile"   className="font-body text-sm text-muted hover:text-white transition">Profile</Link>
+          </nav>
 
           <SignOutButton />
         </div>
@@ -64,10 +69,25 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {children}
       </main>
 
-      {/* Mobile bottom tab bar — outside the header so it is never a flex child */}
-      <MobileNav />
+      {/* Mobile bottom tab bar */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 bg-navy border-t border-[rgba(255,255,255,0.10)] z-40">
+        <div className="grid grid-cols-4 h-16">
+          <Link href="/dashboard" className="flex flex-col items-center justify-center gap-0.5 text-muted hover:text-white transition">
+            <span className="font-body text-xs">Dashboard</span>
+          </Link>
+          <Link href="/study"     className="flex flex-col items-center justify-center gap-0.5 text-muted hover:text-white transition">
+            <span className="font-body text-xs">Study</span>
+          </Link>
+          <Link href="/progress"  className="flex flex-col items-center justify-center gap-0.5 text-muted hover:text-white transition">
+            <span className="font-body text-xs">Progress</span>
+          </Link>
+          <Link href="/profile"   className="flex flex-col items-center justify-center gap-0.5 text-muted hover:text-white transition">
+            <span className="font-body text-xs">Profile</span>
+          </Link>
+        </div>
+      </nav>
 
-      {/* Spacer so content isn't obscured by the fixed MobileNav */}
+      {/* Spacer so content isn't obscured by the fixed mobile nav */}
       <div className="h-16 md:hidden" />
     </div>
   )

@@ -104,15 +104,35 @@ export type Database = {
         }
         Relationships: []
       }
+      decks: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          created_at?: string
+        }
+        Update: {
+          name?: string
+          description?: string | null
+        }
+        Relationships: []
+      }
       cards: {
         Row: {
           id: string
           front: string
           back: string
           explanation: string | null
-          modality: Modality
-          case_type: CaseType
-          card_type: CardType
+          deck_id: string | null
+          modality: Modality | null
+          case_type: CaseType | null
+          card_type: CardType | null
           created_at: string
           updated_at: string
         }
@@ -121,9 +141,10 @@ export type Database = {
           front: string
           back: string
           explanation?: string | null
-          modality: Modality
-          case_type: CaseType
-          card_type: CardType
+          deck_id?: string | null
+          modality?: Modality | null
+          case_type?: CaseType | null
+          card_type?: CardType | null
           created_at?: string
           updated_at?: string
         }
@@ -131,9 +152,10 @@ export type Database = {
           front?: string
           back?: string
           explanation?: string | null
-          modality?: Modality
-          case_type?: CaseType
-          card_type?: CardType
+          deck_id?: string | null
+          modality?: Modality | null
+          case_type?: CaseType | null
+          card_type?: CardType | null
           updated_at?: string
         }
         Relationships: []

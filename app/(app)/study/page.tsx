@@ -1,21 +1,27 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { seedCards } from '@/app/actions/seed'
-import type { Modality } from '@/lib/supabase/types'
 
 // ----------------------------------------------------------------
-// Modality display config
+// Deck icon lookup (matches names stored in the decks table)
 // ----------------------------------------------------------------
 
-const MODALITY_META: Record<Modality, { label: string; description: string; icon: string }> = {
-  ssep:          { label: 'SSEP',         description: 'Somatosensory Evoked Potentials', icon: '🧠' },
-  mep:           { label: 'MEP',          description: 'Motor Evoked Potentials',          icon: '⚡' },
-  emg_free:      { label: 'EMG Free',     description: 'Free-Running EMG',                 icon: '📈' },
-  emg_triggered: { label: 'EMG Trig.',    description: 'Triggered EMG',                    icon: '🔌' },
-  eeg:           { label: 'EEG',          description: 'Electroencephalography',            icon: '🌊' },
-  baep:          { label: 'BAEP',         description: 'Brainstem Auditory Evoked',         icon: '👂' },
-  vep:           { label: 'VEP',          description: 'Visual Evoked Potentials',          icon: '👁️' },
-  dwave:         { label: 'D-Wave',       description: 'Direct Wave Monitoring',            icon: '📡' },
+const DECK_ICONS: Record<string, string> = {
+  'ssep':                 '🧠',
+  'mep':                  '⚡',
+  'emg':                  '📈',
+  'eeg':                  '🌊',
+  'abr':                  '👂',
+  'baep':                 '👂',
+  'vep':                  '👁️',
+  'd-wave':               '📡',
+  'dwave':                '📡',
+  'ionm fundamentals':    '📚',
+  'neuroanatomy':         '🔬',
+}
+
+function deckIcon(name: string): string {
+  return DECK_ICONS[name.toLowerCase()] ?? '🗂️'
 }
 
 // ----------------------------------------------------------------
@@ -24,7 +30,6 @@ const MODALITY_META: Record<Modality, { label: string; description: string; icon
 
 export default async function StudyPage() {
   // Ensure seed cards exist — no-op if the table already has rows.
-  // Silently swallows errors (missing env vars in local dev, etc.)
   try { await seedCards() } catch { /* ignore */ }
 
   // User session (for due-card counts only)
@@ -32,20 +37,26 @@ export default async function StudyPage() {
   const { data: { user } } = await supabase.auth.getUser()
   const uid = user?.id ?? ''
 
-  // Cards are global content — use the admin client so RLS never blocks the read.
+  // Global content — use admin client to bypass RLS
   const admin = createAdminClient()
 
-  // Total card count per modality
+  // Fetch all decks
+  const { data: decks } = await admin
+    .from('decks')
+    .select('id, name, description')
+    .order('name')
+
+  // Fetch card counts per deck
   const { data: allCards } = await admin
     .from('cards')
-    .select('id, modality')
+    .select('id, deck_id')
 
-  const totalByModality = (allCards ?? []).reduce<Record<string, number>>((acc, c) => {
-    acc[c.modality] = (acc[c.modality] ?? 0) + 1
+  const countByDeck = (allCards ?? []).reduce<Record<string, number>>((acc, c) => {
+    if (c.deck_id) acc[c.deck_id] = (acc[c.deck_id] ?? 0) + 1
     return acc
   }, {})
 
-  // Due card_ids for this user (user-scoped → regular client is fine)
+  // Due cards for this user
   const { data: dueReviews } = await supabase
     .from('card_reviews')
     .select('card_id')
@@ -54,32 +65,18 @@ export default async function StudyPage() {
 
   const dueCardIds = new Set((dueReviews ?? []).map((r) => r.card_id))
 
-  // Due count per modality — join against the already-fetched allCards list
-  const dueByModality: Record<string, number> = {}
+  // Due count per deck — join in-memory against allCards
+  const dueByDeck: Record<string, number> = {}
   if (dueCardIds.size > 0) {
     ;(allCards ?? []).forEach((c) => {
-      if (dueCardIds.has(c.id)) {
-        dueByModality[c.modality] = (dueByModality[c.modality] ?? 0) + 1
+      if (c.deck_id && dueCardIds.has(c.id)) {
+        dueByDeck[c.deck_id] = (dueByDeck[c.deck_id] ?? 0) + 1
       }
     })
   }
 
-  // ── TEMP DEBUG — remove after verifying ──────────────────────────
-  console.log('DEBUG SERVICE KEY EXISTS:', !!process.env.SUPABASE_SERVICE_ROLE_KEY)
-  console.log('DEBUG SERVICE KEY PREFIX:', process.env.SUPABASE_SERVICE_ROLE_KEY?.substring(0, 20))
-  console.log('DEBUG SUPABASE URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
-  console.log('DEBUG allCards length:', allCards?.length ?? 'null')
-  console.log('DEBUG totalByModality:', JSON.stringify(totalByModality))
-  const { data: debugCards, error: debugError } = await admin
-    .from('cards')
-    .select('modality')
-    .limit(5)
-  console.log('DEBUG CARDS sample:', JSON.stringify(debugCards))
-  console.log('DEBUG CARDS error:', JSON.stringify(debugError))
-  // ─────────────────────────────────────────────────────────────────
-
-  const modalities = Object.keys(MODALITY_META) as Modality[]
   const totalDue = dueCardIds.size
+  const deckList = decks ?? []
 
   return (
     <div className="space-y-8">
@@ -102,38 +99,45 @@ export default async function StudyPage() {
         {totalDue > 0 ? `Start Review Session (${totalDue} due)` : 'Study Ahead'}
       </a>
 
-      {/* ── Modality deck grid ── */}
+      {/* ── Deck grid ── */}
       <section>
         <h2 className="font-heading text-sm text-teal uppercase tracking-wider mb-4">
-          Browse by modality
+          Browse by deck
         </h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {modalities.map((mod) => {
-            const total = totalByModality[mod] ?? 0
-            const due   = dueByModality[mod]   ?? 0
-            const meta  = MODALITY_META[mod]
-            if (total === 0) return null
-            return (
-              <a
-                key={mod}
-                href="/study/flashcards"
-                className="bg-navy border border-[rgba(255,255,255,0.10)] hover:border-teal/50 rounded-xl p-4 flex flex-col gap-2 transition"
-              >
-                <span className="text-2xl">{meta.icon}</span>
-                <p className="font-heading text-white text-base leading-tight">{meta.label}</p>
-                <p className="font-body text-muted text-[11px] leading-snug">{meta.description}</p>
-                <div className="mt-auto flex items-center justify-between pt-2">
-                  <span className="font-body text-xs text-muted">{total} cards</span>
-                  {due > 0 && (
-                    <span className="font-body text-[10px] bg-orange/15 text-orange px-2 py-0.5 rounded-full">
-                      {due} due
-                    </span>
+
+        {deckList.length === 0 ? (
+          <p className="font-body text-sm text-muted">No decks found.</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {deckList.map((deck) => {
+              const total = countByDeck[deck.id] ?? 0
+              const due   = dueByDeck[deck.id]   ?? 0
+              return (
+                <a
+                  key={deck.id}
+                  href="/study/flashcards"
+                  className="bg-navy border border-[rgba(255,255,255,0.10)] hover:border-teal/50 rounded-xl p-4 flex flex-col gap-2 transition"
+                >
+                  <span className="text-2xl">{deckIcon(deck.name)}</span>
+                  <p className="font-heading text-white text-base leading-tight">{deck.name}</p>
+                  {deck.description && (
+                    <p className="font-body text-muted text-[11px] leading-snug line-clamp-2">
+                      {deck.description}
+                    </p>
                   )}
-                </div>
-              </a>
-            )
-          })}
-        </div>
+                  <div className="mt-auto flex items-center justify-between pt-2">
+                    <span className="font-body text-xs text-muted">{total} cards</span>
+                    {due > 0 && (
+                      <span className="font-body text-[10px] bg-orange/15 text-orange px-2 py-0.5 rounded-full">
+                        {due} due
+                      </span>
+                    )}
+                  </div>
+                </a>
+              )
+            })}
+          </div>
+        )}
       </section>
 
     </div>

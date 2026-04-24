@@ -14,9 +14,9 @@ export type SessionCard = {
   front: string
   back: string
   explanation: string | null
-  modality: string
-  caseType: string
-  cardType: string
+  modality: string | null
+  caseType: string | null
+  cardType: string | null
   isNew: boolean
   intervalLabels: { again: string; hard: string; good: string }
 }
@@ -56,11 +56,13 @@ const RATING_CONFIG = [
   },
 ]
 
-function formatModality(m: string) {
+function formatModality(m: string | null) {
+  if (!m) return ''
   return MODALITY_LABELS[m] ?? m.toUpperCase()
 }
 
-function formatCaseType(c: string) {
+function formatCaseType(c: string | null) {
+  if (!c) return ''
   return c.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
 }
 

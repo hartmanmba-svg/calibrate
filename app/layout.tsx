@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Oswald, Open_Sans } from 'next/font/google'
+import { ServiceWorkerRegistrar } from '@/app/(app)/components/ServiceWorkerRegistrar'
 import './globals.css'
 
 const oswald = Oswald({
@@ -19,7 +20,14 @@ export const metadata: Metadata = { title: 'Calibrate' }
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${oswald.variable} ${openSans.variable}`}>
-      <body>{children}</body>
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#1A252F" />
+      </head>
+      <body>
+        <ServiceWorkerRegistrar />
+        {children}
+      </body>
     </html>
   )
 }

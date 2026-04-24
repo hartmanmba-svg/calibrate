@@ -103,3 +103,34 @@ When selecting only a subset of columns (e.g., `.select('id, title, description,
 ## 18. Employer layout must be at (employer)/employer/layout.tsx
 
 The route group structure `app/(employer)/employer/[page]/page.tsx` means URLs are `/employer/[page]`. The layout wrapping all employer pages should be at `app/(employer)/employer/layout.tsx` — not at the route group level (`(employer)/layout.tsx`), which would apply to the group but not add the `/employer` path segment.
+
+---
+
+# Lessons Learned — Phase 4
+
+## 19. Manual service worker is the correct approach for Next.js 14 App Router
+
+`next-pwa` is not compatible with Next.js 14 App Router. The correct approach is:
+- Place `sw.js` in `/public` — Next.js serves it as-is at `/sw.js`
+- Register via a `'use client'` component (`ServiceWorkerRegistrar.tsx`) rendered in `app/layout.tsx`
+- Use a `'calibrate-v1'` cache name and implement network-first/cache-first strategies in vanilla JS
+
+## 20. Offline fallback page must be outside (app)/ route group
+
+`app/offline/page.tsx` must be at the top-level (not inside `(app)/`) because it needs no auth and renders standalone HTML. It uses a raw `<html>` + inline `<style>` tag since it isn't wrapped by the root layout (the layout's `<html>` would conflict).
+
+## 21. Service worker urlBase64ToUint8Array — return ArrayBuffer, not Uint8Array
+
+TypeScript strict mode rejects `Uint8Array` as the `applicationServerKey` because `Uint8Array.buffer` is typed as `ArrayBufferLike` (which includes `SharedArrayBuffer`), but the Push API requires a plain `ArrayBuffer`. Fix: build the bytes manually and return `.buffer` (the underlying `ArrayBuffer`).
+
+## 22. Grouped specialty scores — compute in app memory, no new DB enum values
+
+Phase 4 adds 5 grouped specialty scores (vascular, cranial, pediatrics, extremity, spinalTumor). Like the spinal score, these are derived by filtering 30-day reviews across their constituent case types — they are NOT written as separate DB rows, avoiding the need for new `score_type` enum values. Return them from `computeAndCacheScores()` alongside `spinalScore`.
+
+## 23. Credential upsert helper — pass typed SupabaseClient, not `any`
+
+The `upsertCredential` helper in `credentials.ts` must accept `SupabaseClient<Database>` (imported from `@supabase/supabase-js`) rather than `any` to satisfy TypeScript strict mode. The admin client created by `createAdminClient()` is typed as `SupabaseClient<Database>`.
+
+## 24. checkCredentials is non-fatal in processReview
+
+Credential checking runs after badge + mission checks inside a try/catch. Any DB error during credential evaluation must not break the review flow — the `credentialsUpdated: boolean` field on `ProcessReviewResult` defaults to `false` on failure.

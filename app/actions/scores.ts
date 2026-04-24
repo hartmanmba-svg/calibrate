@@ -19,6 +19,13 @@ const SPINAL_CASE_TYPES: CaseType[] = [
   'spinal_tumor',
 ]
 
+// Case types for each grouped specialty score
+const VASCULAR_CASE_TYPES: CaseType[] = ['carotid', 'vascular']
+const CRANIAL_CASE_TYPES: CaseType[] = ['supratentorial', 'posterior_fossa', 'skull_base']
+const PEDIATRICS_CASE_TYPES: CaseType[] = ['pediatric']
+const EXTREMITY_CASE_TYPES: CaseType[] = ['peripheral_nerve']
+const SPINAL_TUMOR_CASE_TYPES: CaseType[] = ['spinal_tumor']
+
 // ----------------------------------------------------------------
 // Types
 // ----------------------------------------------------------------
@@ -32,6 +39,11 @@ export type ComputedScores = {
   orScore: number | null
   orPercentile: number | null
   spinalScore: number | null
+  vascularScore: number | null
+  cranialScore: number | null
+  pediatricsScore: number | null
+  extremityScore: number | null
+  spinalTumorScore: number | null
   specialtyScores: Partial<Record<CaseType, number>>
   reviewCount: number
 }
@@ -160,47 +172,103 @@ export async function computeAndCacheScores(): Promise<ComputedScores> {
       .upsert(specialtyUpserts, { onConflict: 'user_id,score_type' })
   }
 
-  // ── Spinal score — combined across spinal case_types ────────
+  // ── Grouped specialty scores — derived in application memory ─
   const spinalReviews = reviews.filter(
     (r) => r.cards !== null && SPINAL_CASE_TYPES.includes(r.cards.case_type as CaseType)
   )
   const spinalScore = scoreFromReviews(spinalReviews)
 
-  return { orScore, orPercentile, spinalScore, specialtyScores, reviewCount: reviews.length }
+  const vascularScore = scoreFromReviews(
+    reviews.filter((r) => r.cards !== null && VASCULAR_CASE_TYPES.includes(r.cards.case_type as CaseType))
+  )
+
+  const cranialScore = scoreFromReviews(
+    reviews.filter((r) => r.cards !== null && CRANIAL_CASE_TYPES.includes(r.cards.case_type as CaseType))
+  )
+
+  const pediatricsScore = scoreFromReviews(
+    reviews.filter((r) => r.cards !== null && PEDIATRICS_CASE_TYPES.includes(r.cards.case_type as CaseType))
+  )
+
+  const extremityScore = scoreFromReviews(
+    reviews.filter((r) => r.cards !== null && EXTREMITY_CASE_TYPES.includes(r.cards.case_type as CaseType))
+  )
+
+  const spinalTumorScore = scoreFromReviews(
+    reviews.filter((r) => r.cards !== null && SPINAL_TUMOR_CASE_TYPES.includes(r.cards.case_type as CaseType))
+  )
+
+  return {
+    orScore,
+    orPercentile,
+    spinalScore,
+    vascularScore,
+    cranialScore,
+    pediatricsScore,
+    extremityScore,
+    spinalTumorScore,
+    specialtyScores,
+    reviewCount: reviews.length,
+  }
 }
 
 // ----------------------------------------------------------------
-// Standalone spinal score server action
+// Standalone specialty score helpers (used by credentials check)
 // ----------------------------------------------------------------
 
 /**
- * Compute and return the spinal specialty score for the given user.
- * Spinal = combined reviews across cervical, lumbar, scoliosis, tethered_cord, spinal_tumor.
- * Returns null if fewer than MIN_REVIEWS (10) reviews exist.
- *
- * NOTE: 'spinal' is not a value in the DB score_type enum, so this score
- * is derived in-memory from the individual spinal case-type reviews and
- * is NOT separately cached in readiness_scores. It is returned alongside
- * the other scores from computeAndCacheScores().
+ * Fetch all reviews for a user in the 30-day window.
+ * Returns array of ReviewRow with cards.case_type populated.
  */
-export async function computeSpinalScore(userId: string): Promise<number | null> {
+async function fetchRecentReviews(userId: string): Promise<ReviewRow[]> {
   const admin = createAdminClient()
-  const now = new Date()
-  const windowStart = new Date(now.getTime() - WINDOW_DAYS * 24 * 60 * 60 * 1000)
-
+  const windowStart = new Date(Date.now() - WINDOW_DAYS * 24 * 60 * 60 * 1000)
   const { data: raw } = await admin
     .from('review_log')
     .select('rating, cards(case_type)')
     .eq('user_id', userId)
     .gte('reviewed_at', windowStart.toISOString())
+  return ((raw ?? []) as unknown as ReviewRow[]).filter((r) => r.cards !== null)
+}
 
-  const reviews = ((raw ?? []) as unknown as ReviewRow[]).filter(
-    (r) => r.cards !== null
+export async function computeSpinalScore(userId: string): Promise<number | null> {
+  const reviews = await fetchRecentReviews(userId)
+  return scoreFromReviews(
+    reviews.filter((r) => r.cards !== null && SPINAL_CASE_TYPES.includes(r.cards.case_type as CaseType))
   )
+}
 
-  const spinalReviews = reviews.filter(
-    (r) => r.cards !== null && SPINAL_CASE_TYPES.includes(r.cards.case_type as CaseType)
+export async function computeVascularScore(userId: string): Promise<number | null> {
+  const reviews = await fetchRecentReviews(userId)
+  return scoreFromReviews(
+    reviews.filter((r) => r.cards !== null && VASCULAR_CASE_TYPES.includes(r.cards.case_type as CaseType))
   )
+}
 
-  return scoreFromReviews(spinalReviews)
+export async function computeCranialScore(userId: string): Promise<number | null> {
+  const reviews = await fetchRecentReviews(userId)
+  return scoreFromReviews(
+    reviews.filter((r) => r.cards !== null && CRANIAL_CASE_TYPES.includes(r.cards.case_type as CaseType))
+  )
+}
+
+export async function computePediatricsScore(userId: string): Promise<number | null> {
+  const reviews = await fetchRecentReviews(userId)
+  return scoreFromReviews(
+    reviews.filter((r) => r.cards !== null && PEDIATRICS_CASE_TYPES.includes(r.cards.case_type as CaseType))
+  )
+}
+
+export async function computeExtremityScore(userId: string): Promise<number | null> {
+  const reviews = await fetchRecentReviews(userId)
+  return scoreFromReviews(
+    reviews.filter((r) => r.cards !== null && EXTREMITY_CASE_TYPES.includes(r.cards.case_type as CaseType))
+  )
+}
+
+export async function computeSpinalTumorScore(userId: string): Promise<number | null> {
+  const reviews = await fetchRecentReviews(userId)
+  return scoreFromReviews(
+    reviews.filter((r) => r.cards !== null && SPINAL_TUMOR_CASE_TYPES.includes(r.cards.case_type as CaseType))
+  )
 }

@@ -13,6 +13,7 @@ import {
 } from 'ts-fsrs'
 import { totalXpForLevel } from '@/lib/xp'
 import { BADGE_DEFINITIONS } from '@/lib/badges'
+import { checkCredentials } from '@/app/actions/credentials'
 import type { BadgeKey } from '@/lib/badges'
 import type { Json } from '@/lib/supabase/types'
 
@@ -62,6 +63,7 @@ export type ProcessReviewResult = {
   dueAt: string
   earnedBadges: string[]
   completedMissions: string[]
+  credentialsUpdated: boolean
 }
 
 export type ReviewContext = {
@@ -403,6 +405,14 @@ export async function processReview(
     streak: newStreak,
   })
 
+  // ── Credentials ───────────────────────────────────────────────
+  let credentialsUpdated = false
+  try {
+    credentialsUpdated = await checkCredentials(user.id)
+  } catch {
+    // Non-fatal — credential check failure should not break review flow
+  }
+
   return {
     xpEarned,
     newLevel,
@@ -412,5 +422,6 @@ export async function processReview(
     dueAt: next.due.toISOString(),
     earnedBadges,
     completedMissions,
+    credentialsUpdated,
   }
 }

@@ -3,7 +3,7 @@ import { computeAndCacheScores } from '@/app/actions/scores'
 import { computeXpProgress } from '@/lib/xp'
 import { ReadinessRing } from './ReadinessRing'
 import { BADGE_DEFINITIONS } from '@/lib/badges'
-import type { CareerStage } from '@/lib/supabase/types'
+import type { CareerStage, CredentialType, CredentialStatus } from '@/lib/supabase/types'
 
 // ----------------------------------------------------------------
 // Career path stepper config
@@ -45,11 +45,29 @@ const CAREER_STAGE_LABELS: Record<CareerStage, string> = {
 // Specialty grid config (7 cells)
 // ----------------------------------------------------------------
 
+type SpecialtyScoreKey = 'spinal' | 'vascular' | 'cranial' | 'pediatrics' | 'extremity' | 'spinalTumor' | null
+
 type SpecialtyCell = {
   label: string
-  scoreKey: 'spinal' | null
+  scoreKey: SpecialtyScoreKey
   locked: boolean
   lockedLabel: string | null
+}
+
+// ----------------------------------------------------------------
+// Credential icons
+// ----------------------------------------------------------------
+
+const CREDENTIAL_ICONS: Record<CredentialType, string> = {
+  trainer: '🏆',
+  educator: '📚',
+  fellow: '🎓',
+}
+
+const CREDENTIAL_STATUS_STYLES: Record<CredentialStatus, { text: string; color: string }> = {
+  active:  { text: 'Active',  color: 'text-green' },
+  warning: { text: 'Warning', color: 'text-gold' },
+  paused:  { text: 'Paused',  color: 'text-red' },
 }
 
 // ----------------------------------------------------------------
@@ -145,27 +163,46 @@ function XpCard({ xp, level, streak }: { xp: number; level: number; streak: numb
 
 function SpecialtyGrid({
   spinalScore,
+  vascularScore,
+  cranialScore,
+  pediatricsScore,
+  extremityScore,
+  spinalTumorScore,
   careerStage,
 }: {
   spinalScore: number | null
+  vascularScore: number | null
+  cranialScore: number | null
+  pediatricsScore: number | null
+  extremityScore: number | null
+  spinalTumorScore: number | null
   careerStage: CareerStage
 }) {
   const isAdvanced = careerStage === 'certified' || careerStage === 'supervisor'
 
   const cells: SpecialtyCell[] = [
-    { label: 'Spinal',        scoreKey: 'spinal', locked: false, lockedLabel: null },
-    { label: 'Vascular',      scoreKey: null,     locked: false, lockedLabel: null },
-    { label: 'Cranial',       scoreKey: null,     locked: false, lockedLabel: null },
-    { label: 'ENT',           scoreKey: null,     locked: false, lockedLabel: null },
-    { label: 'Pediatrics',    scoreKey: null,     locked: false, lockedLabel: null },
-    { label: 'Extremity',     scoreKey: null,     locked: false, lockedLabel: null },
+    { label: 'Spinal',        scoreKey: 'spinal',      locked: false,      lockedLabel: null },
+    { label: 'Vascular',      scoreKey: 'vascular',    locked: false,      lockedLabel: null },
+    { label: 'Cranial',       scoreKey: 'cranial',     locked: false,      lockedLabel: null },
+    { label: 'ENT',           scoreKey: null,           locked: false,      lockedLabel: null },
+    { label: 'Pediatrics',    scoreKey: 'pediatrics',  locked: false,      lockedLabel: null },
+    { label: 'Extremity',     scoreKey: 'extremity',   locked: false,      lockedLabel: null },
     {
       label: 'Spinal Tumors',
-      scoreKey: null,
+      scoreKey: 'spinalTumor',
       locked: !isAdvanced,
       lockedLabel: 'Unlocks at CNIM',
     },
   ]
+
+  const scoreMap: Record<NonNullable<SpecialtyScoreKey>, number | null> = {
+    spinal:      spinalScore,
+    vascular:    vascularScore,
+    cranial:     cranialScore,
+    pediatrics:  pediatricsScore,
+    extremity:   extremityScore,
+    spinalTumor: spinalTumorScore,
+  }
 
   function scoreColor(score: number): string {
     if (score >= 80) return 'text-green'
@@ -192,7 +229,7 @@ function SpecialtyGrid({
       </p>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         {cells.map((cell) => {
-          const score = cell.scoreKey === 'spinal' ? spinalScore : null
+          const score = cell.scoreKey !== null ? scoreMap[cell.scoreKey] : null
 
           if (cell.locked) {
             return (
@@ -255,9 +292,24 @@ export default async function ProgressPage() {
   let orScore: number | null = null
   let orPercentile: number | null = null
   let spinalScore: number | null = null
+  let vascularScore: number | null = null
+  let cranialScore: number | null = null
+  let pediatricsScore: number | null = null
+  let extremityScore: number | null = null
+  let spinalTumorScore: number | null = null
   let reviewCount = 0
   try {
-    ;({ orScore, orPercentile, spinalScore, reviewCount } = await computeAndCacheScores())
+    ;({
+      orScore,
+      orPercentile,
+      spinalScore,
+      vascularScore,
+      cranialScore,
+      pediatricsScore,
+      extremityScore,
+      spinalTumorScore,
+      reviewCount,
+    } = await computeAndCacheScores())
   } catch {
     // DB error or env-var misconfiguration — render with empty data
   }
@@ -281,6 +333,19 @@ export default async function ProgressPage() {
     .eq('user_id', uid)
 
   const earnedKeys = new Set((earnedRows ?? []).map((r) => r.badge_key))
+
+  // Fetch credentials (user-scoped RLS client)
+  const { data: credentialRows } = await supabase
+    .from('credentials')
+    .select('credential_type, status, earned_at')
+    .eq('user_id', uid)
+    .order('earned_at', { ascending: true })
+
+  const credentials = (credentialRows ?? []) as {
+    credential_type: CredentialType
+    status: CredentialStatus
+    earned_at: string
+  }[]
 
   return (
     <div className="flex flex-col gap-8 max-w-3xl mx-auto">
@@ -336,10 +401,58 @@ export default async function ProgressPage() {
       <XpCard xp={xp} level={level} streak={streak} />
 
       {/* Section 3 — Specialty Score Grid */}
-      <SpecialtyGrid spinalScore={spinalScore} careerStage={careerStage} />
+      <SpecialtyGrid
+        spinalScore={spinalScore}
+        vascularScore={vascularScore}
+        cranialScore={cranialScore}
+        pediatricsScore={pediatricsScore}
+        extremityScore={extremityScore}
+        spinalTumorScore={spinalTumorScore}
+        careerStage={careerStage}
+      />
 
-      {/* Section 4 — Badge Shelf */}
-      {/* TODO: Badge Shelf — populated in Step 4 */}
+      {/* Section 4 — Credentials */}
+      <div>
+        <p className="font-body text-xs text-muted uppercase tracking-widest mb-4">Credentials</p>
+        {credentials.length === 0 ? (
+          <p className="font-body text-sm text-muted">No credentials earned yet.</p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {credentials.map((cred) => {
+              const styleInfo = CREDENTIAL_STATUS_STYLES[cred.status] ?? { text: cred.status, color: 'text-muted' }
+              return (
+                <div
+                  key={cred.credential_type}
+                  className="flex items-center justify-between rounded-xl border border-[rgba(255,255,255,0.10)] bg-navy px-5 py-4"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl" role="img" aria-label={cred.credential_type}>
+                      {CREDENTIAL_ICONS[cred.credential_type]}
+                    </span>
+                    <div>
+                      <p className="font-heading text-sm text-white capitalize">{cred.credential_type}</p>
+                      <p className="font-body text-[11px] text-muted">
+                        Earned {new Date(cred.earned_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`font-heading text-xs px-2.5 py-0.5 rounded-full border ${
+                    cred.status === 'active'
+                      ? 'border-green/30 bg-green/10 text-green'
+                      : cred.status === 'paused'
+                        ? 'border-red/30 bg-red/10 text-red'
+                        : 'border-gold/30 bg-gold/10 text-gold'
+                  }`}>
+                    {styleInfo.text}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Section 5 — Badge Shelf */}
       <div>
         <p className="font-body text-xs text-muted uppercase tracking-widest mb-4">Badges</p>
         <div className="flex flex-wrap gap-3">

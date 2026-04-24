@@ -92,9 +92,13 @@ export default async function StudyPage() {
     <div className="space-y-8">
 
       {/* ── TEMP DEBUG — remove after verifying ── */}
-      <p style={{ color: 'red', fontWeight: 'bold' }}>
-        DECKS: {deckList.length} | CARDS_SIMPLE: {allCardsSimple?.length ?? 'null'} | CARDS_WITH_DECKID: {allCards?.length ?? 'null'}
-      </p>
+      <div style={{ color: 'red', fontWeight: 'bold', fontSize: 12, wordBreak: 'break-all' }}>
+        <p>SUPABASE_URL: {process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'MISSING'}</p>
+        <p>SERVICE_KEY_EXISTS: {process.env.SUPABASE_SERVICE_ROLE_KEY ? 'YES (' + process.env.SUPABASE_SERVICE_ROLE_KEY.slice(0, 10) + '...)' : 'MISSING'}</p>
+        <p>DECKS: {deckList.length} | CARDS_SIMPLE: {allCardsSimple?.length ?? 'null'} | CARDS_WITH_DECKID: {allCards?.length ?? 'null'}</p>
+        <p>DECKS_ERR: {decksError ? JSON.stringify(decksError) : 'none'}</p>
+        <p>CARDS_ERR: {cardsSimpleError ? JSON.stringify(cardsSimpleError) : 'none'}</p>
+      </div>
       {/* ───────────────────────────────────────── */}
 
       {/* ── Header ── */}

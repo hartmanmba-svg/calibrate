@@ -64,6 +64,17 @@ export default async function StudyPage() {
     })
   }
 
+  // ── TEMP DEBUG — remove after verifying ──────────────────────────
+  const { data: debugCards, error: debugError } = await admin
+    .from('cards')
+    .select('modality')
+    .limit(5)
+  console.log('DEBUG CARDS sample:', JSON.stringify(debugCards))
+  console.log('DEBUG ERROR:', JSON.stringify(debugError))
+  console.log('DEBUG totalByModality:', JSON.stringify(totalByModality))
+  console.log('DEBUG allCards length:', allCards?.length ?? 'null')
+  // ─────────────────────────────────────────────────────────────────
+
   const modalities = Object.keys(MODALITY_META) as Modality[]
   const totalDue = dueCardIds.size
 

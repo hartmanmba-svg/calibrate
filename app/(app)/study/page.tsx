@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { seedCards } from '@/app/actions/seed'
 import type { Modality } from '@/lib/supabase/types'
 
@@ -26,23 +27,25 @@ export default async function StudyPage() {
   // Silently swallows errors (missing env vars in local dev, etc.)
   try { await seedCards() } catch { /* ignore */ }
 
+  // User session (for due-card counts only)
   const supabase = createClient()
-
   const { data: { user } } = await supabase.auth.getUser()
-  // No redirect — middleware handles unauthenticated users.
   const uid = user?.id ?? ''
 
+  // Cards are global content — use the admin client so RLS never blocks the read.
+  const admin = createAdminClient()
+
   // Total card count per modality
-  const { data: allCards } = await supabase
+  const { data: allCards } = await admin
     .from('cards')
-    .select('modality')
+    .select('id, modality')
 
   const totalByModality = (allCards ?? []).reduce<Record<string, number>>((acc, c) => {
     acc[c.modality] = (acc[c.modality] ?? 0) + 1
     return acc
   }, {})
 
-  // Due card_ids for this user
+  // Due card_ids for this user (user-scoped → regular client is fine)
   const { data: dueReviews } = await supabase
     .from('card_reviews')
     .select('card_id')
@@ -51,19 +54,14 @@ export default async function StudyPage() {
 
   const dueCardIds = new Set((dueReviews ?? []).map((r) => r.card_id))
 
-  // Due cards per modality — need to know modality of each due card
-  // Query the cards for the due card_ids to get their modality
-  let dueByModality: Record<string, number> = {}
+  // Due count per modality — join against the already-fetched allCards list
+  const dueByModality: Record<string, number> = {}
   if (dueCardIds.size > 0) {
-    const { data: dueCardRows } = await supabase
-      .from('cards')
-      .select('id, modality')
-      .in('id', Array.from(dueCardIds))
-
-    dueByModality = (dueCardRows ?? []).reduce<Record<string, number>>((acc, c) => {
-      acc[c.modality] = (acc[c.modality] ?? 0) + 1
-      return acc
-    }, {})
+    ;(allCards ?? []).forEach((c) => {
+      if (dueCardIds.has(c.id)) {
+        dueByModality[c.modality] = (dueByModality[c.modality] ?? 0) + 1
+      }
+    })
   }
 
   const modalities = Object.keys(MODALITY_META) as Modality[]

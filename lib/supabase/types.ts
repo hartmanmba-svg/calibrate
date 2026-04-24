@@ -248,6 +248,7 @@ export type Database = {
           user_id: string
           score_type: ScoreType
           score: number
+          percentile: number | null
           reviews_used: number
           computed_at: string
         }
@@ -256,11 +257,13 @@ export type Database = {
           user_id: string
           score_type: ScoreType
           score: number
+          percentile?: number | null
           reviews_used?: number
           computed_at?: string
         }
         Update: {
           score?: number
+          percentile?: number | null
           reviews_used?: number
           computed_at?: string
         }

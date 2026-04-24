@@ -253,10 +253,11 @@ export default async function ProgressPage() {
 
   // Compute fresh scores — never throw; show empty state on any error
   let orScore: number | null = null
+  let orPercentile: number | null = null
   let spinalScore: number | null = null
   let reviewCount = 0
   try {
-    ;({ orScore, spinalScore, reviewCount } = await computeAndCacheScores())
+    ;({ orScore, orPercentile, spinalScore, reviewCount } = await computeAndCacheScores())
   } catch {
     // DB error or env-var misconfiguration — render with empty data
   }
@@ -299,6 +300,15 @@ export default async function ProgressPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         <div className="bg-navy border border-[rgba(255,255,255,0.10)] rounded-2xl p-8 flex flex-col items-center gap-2">
           <ReadinessRing score={orScore} reviewCount={reviewCount} label="OR Readiness" />
+          {orScore !== null && (
+            <p className="font-body text-xs text-muted text-center mt-1">
+              {orPercentile !== null
+                ? orPercentile >= 50
+                  ? `Top ${100 - orPercentile}% in your peer group`
+                  : `${orPercentile}th percentile in your peer group`
+                : 'Building benchmark data'}
+            </p>
+          )}
           {orScore === null && (
             <a
               href="/study/flashcards"

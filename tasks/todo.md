@@ -1,39 +1,37 @@
-# Calibrate Phase 2 Steps 2–5 — Todo
+# Calibrate Phase 3 — Todo
 
-## Step 2 — Spinal Specialty Score
-- [x] Add `computeSpinalScore(userId)` to `app/actions/scores.ts`
-- [x] Note: 'spinal' is NOT in DB score_type enum — derive from individual case scores (cervical, lumbar, scoliosis, tethered_cord, spinal_tumor) combined in memory
-- [x] `computeAndCacheScores()` now also returns `spinalScore: number | null`
-- [x] Progress page calls and displays spinal score
+## Item 1 — National Benchmark Percentiles
+- [x] Add `percentile: number | null` to `readiness_scores` Row/Insert/Update in `lib/supabase/types.ts`
+- [x] Add percentile query to `computeAndCacheScores()` in `app/actions/scores.ts`
+- [x] Add `orPercentile` to `ComputedScores` return type
+- [x] Upsert `percentile` alongside `or_readiness` score
+- [x] Display percentile on progress page (Top X% / Building benchmark data)
 
-## Step 3 — Progress Screen + Career Path
-- [x] Rebuilt `app/(app)/progress/page.tsx` with 5-stage stepper (Student → Trainee → Candidate → CNIM → Expert)
-- [x] Added Score Rings section: OR Readiness + Spinal side by side
-- [x] Added Specialty Score Grid (7 cells as specified, Spinal Tumors locked for student/candidate)
-- [x] Badge Shelf section added (Step 4 implementation included here)
-- [x] Updated `ReadinessRing` to accept a `label` prop
+## Item 2 — Shareable Profile Card + Public Route
+- [x] Build out `app/p/[token]/page.tsx` — unauthenticated public profile (admin client)
+- [x] Add "Share Profile" section to `app/(app)/profile/page.tsx` (fetch/upsert share_link)
+- [x] Create `ProfilePrivacyForm` client component with toggle switches
+- [x] Add `updateShareSettings()` server action to `app/(app)/profile/actions.ts`
+- [x] Create `CopyLinkButton` client component
 
-## Step 4 — Badge System
-- [x] Created `lib/badges.ts` with BADGE_DEFINITIONS and BadgeKey union type (10 badges)
-- [x] Added migration `supabase/migrations/20260424000000_add_consecutive_got_it.sql`
-- [x] Updated `lib/supabase/types.ts` profiles to add `consecutive_got_it: number`
-- [x] Added `checkAndAwardBadges(userId, context)` to `app/actions/review.ts`
-- [x] Updated `processReview` to track `consecutive_got_it`, call `checkAndAwardBadges`
-- [x] Added `earnedBadges: string[]` to `ProcessReviewResult`
-- [x] Badge Shelf on progress page: earned in color, unearned greyed with 🔒
+## Item 3 — Employer Dashboard
+- [x] Create `app/(employer)/employer/layout.tsx` with nav header (synchronous, plain `<a>` tags)
+- [x] Build `app/(employer)/employer/dashboard/page.tsx` with employer stats
+- [x] Build `app/(employer)/employer/team/page.tsx` with staff list + scores
+- [x] Build `app/(employer)/employer/reports/page.tsx` placeholder
+- [x] `/employer` confirmed in middleware PROTECTED_PATHS
 
-## Step 5 — Daily Missions
-- [x] Added migration `supabase/migrations/20260424000001_add_daily_missions.sql`
-- [x] Updated `lib/supabase/types.ts` profiles to add `daily_missions: Json | null`
-- [x] Created `DailyMissions` type in `app/actions/review.ts`
-- [x] Added `checkDailyMissions(userId, context)` to `app/actions/review.ts`
-- [x] `processReview` calls `checkDailyMissions`
-- [x] Added `completedMissions: string[]` to `ProcessReviewResult`
-- [x] Added Daily Missions section to `app/(app)/dashboard/page.tsx`
+## Item 4 — CE Credit Tracker
+- [x] Build out `app/(app)/ce-credits/page.tsx` from stub
+- [x] Show total credits, module list, progress bars, completed badges + download certificate links
+
+## Item 5 — Certificate PDF Generation
+- [x] Create `app/api/certificates/generate/route.tsx` using `@react-pdf/renderer` (already installed)
+- [x] Auth check (401), completion check (404), PDF generation, Uint8Array response
+- [x] "Download certificate" link on CE credits page for completed modules
 
 ## Finishing
-- [x] `npx tsc --noEmit` — passes clean (no output)
+- [x] `npx tsc --noEmit` — passes clean
 - [x] `npx next build` — passes clean (26 pages, no errors)
-- [x] All items marked complete
-- [x] Created `tasks/lessons.md`
-- [ ] Commit with specified message
+- [x] Updated `tasks/lessons.md` with Phase 3 patterns
+- [x] Git commit

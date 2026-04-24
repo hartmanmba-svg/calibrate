@@ -33,3 +33,30 @@ export async function updateProfile(formData: FormData) {
   revalidatePath('/dashboard')
   return { error: null }
 }
+
+export async function updateShareSettings(formData: FormData) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const showName        = formData.get('show_name')        === 'true'
+  const showScores      = formData.get('show_scores')      === 'true'
+  const showCredentials = formData.get('show_credentials') === 'true'
+  const showBadges      = formData.get('show_badges')      === 'true'
+
+  const { error } = await supabase
+    .from('share_links')
+    .update({
+      show_name:        showName,
+      show_scores:      showScores,
+      show_credentials: showCredentials,
+      show_badges:      showBadges,
+      updated_at:       new Date().toISOString(),
+    })
+    .eq('user_id', user.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/profile')
+  return { error: null }
+}

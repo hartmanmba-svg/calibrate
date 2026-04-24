@@ -5,6 +5,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import type { CaseType, ScoreType } from '@/lib/supabase/types'
 import { CASE_TYPES } from '@/lib/case-types'
 
+const MIN_PERCENTILE_COHORT = 50
+
 const MIN_REVIEWS = 10
 const WINDOW_DAYS = 30
 
@@ -28,6 +30,7 @@ type ReviewRow = {
 
 export type ComputedScores = {
   orScore: number | null
+  orPercentile: number | null
   spinalScore: number | null
   specialtyScores: Partial<Record<CaseType, number>>
   reviewCount: number
@@ -96,6 +99,35 @@ export async function computeAndCacheScores(): Promise<ComputedScores> {
 
   const nowIso = now.toISOString()
 
+  // ── Percentile — compare orScore against cohort (same career_stage) ──
+  let orPercentile: number | null = null
+  if (orScore !== null) {
+    // Fetch profile to get career_stage for cohort filtering
+    const { data: selfProfile } = await admin
+      .from('profiles')
+      .select('career_stage')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (selfProfile) {
+      // Count users in same career_stage cohort who have an or_readiness score
+      const { data: cohortRows } = await admin
+        .from('readiness_scores')
+        .select('score, profiles!inner(career_stage)')
+        .eq('score_type', 'or_readiness' as ScoreType)
+        .eq('profiles.career_stage', selfProfile.career_stage)
+
+      type CohortRow = { score: number; profiles: { career_stage: string } | null }
+      const cohort = ((cohortRows ?? []) as unknown as CohortRow[])
+      const total = cohort.length
+
+      if (total >= MIN_PERCENTILE_COHORT) {
+        const countBelow = cohort.filter((r) => r.score <= orScore).length
+        orPercentile = Math.round((countBelow / total) * 100)
+      }
+    }
+  }
+
   // ── Upsert OR Readiness ───────────────────────────────────────
   if (orScore !== null) {
     await admin.from('readiness_scores').upsert(
@@ -103,6 +135,7 @@ export async function computeAndCacheScores(): Promise<ComputedScores> {
         user_id: user.id,
         score_type: 'or_readiness' as ScoreType,
         score: orScore,
+        percentile: orPercentile,
         reviews_used: reviews.length,
         computed_at: nowIso,
       },
@@ -133,7 +166,7 @@ export async function computeAndCacheScores(): Promise<ComputedScores> {
   )
   const spinalScore = scoreFromReviews(spinalReviews)
 
-  return { orScore, spinalScore, specialtyScores, reviewCount: reviews.length }
+  return { orScore, orPercentile, spinalScore, specialtyScores, reviewCount: reviews.length }
 }
 
 // ----------------------------------------------------------------

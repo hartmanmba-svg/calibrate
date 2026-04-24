@@ -41,25 +41,15 @@ export default async function StudyPage() {
   const admin = createAdminClient()
 
   // Fetch all decks
-  const { data: decks, error: decksError } = await admin
+  const { data: decks } = await admin
     .from('decks')
     .select('id, name, description')
     .order('name')
 
-  // Fetch card counts — try without deck_id first to confirm table is reachable
-  const { data: allCardsSimple, error: cardsSimpleError } = await admin
-    .from('cards')
-    .select('id')
-    .limit(3)
-
   // Fetch card counts per deck
-  const { data: allCards, error: cardsError } = await admin
+  const { data: allCards } = await admin
     .from('cards')
     .select('id, deck_id')
-
-  console.log('DECKS ERROR:', JSON.stringify(decksError))
-  console.log('CARDS SIMPLE (id only):', JSON.stringify(allCardsSimple), JSON.stringify(cardsSimpleError))
-  console.log('CARDS WITH deck_id ERROR:', JSON.stringify(cardsError))
 
   const countByDeck = (allCards ?? []).reduce<Record<string, number>>((acc, c) => {
     if (c.deck_id) acc[c.deck_id] = (acc[c.deck_id] ?? 0) + 1
@@ -90,16 +80,6 @@ export default async function StudyPage() {
 
   return (
     <div className="space-y-8">
-
-      {/* ── TEMP DEBUG — remove after verifying ── */}
-      <div style={{ color: 'red', fontWeight: 'bold', fontSize: 12, wordBreak: 'break-all' }}>
-        <p>SUPABASE_URL: {process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'MISSING'}</p>
-        <p>SERVICE_KEY_EXISTS: {process.env.SUPABASE_SERVICE_ROLE_KEY ? 'YES (' + process.env.SUPABASE_SERVICE_ROLE_KEY.slice(0, 10) + '...)' : 'MISSING'}</p>
-        <p>DECKS: {deckList.length} | CARDS_SIMPLE: {allCardsSimple?.length ?? 'null'} | CARDS_WITH_DECKID: {allCards?.length ?? 'null'}</p>
-        <p>DECKS_ERR: {decksError ? JSON.stringify(decksError) : 'none'}</p>
-        <p>CARDS_ERR: {cardsSimpleError ? JSON.stringify(cardsSimpleError) : 'none'}</p>
-      </div>
-      {/* ───────────────────────────────────────── */}
 
       {/* ── Header ── */}
       <div>

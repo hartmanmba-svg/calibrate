@@ -65,14 +65,17 @@ export default async function StudyPage() {
   }
 
   // ── TEMP DEBUG — remove after verifying ──────────────────────────
+  console.log('DEBUG SERVICE KEY EXISTS:', !!process.env.SUPABASE_SERVICE_ROLE_KEY)
+  console.log('DEBUG SERVICE KEY PREFIX:', process.env.SUPABASE_SERVICE_ROLE_KEY?.substring(0, 20))
+  console.log('DEBUG SUPABASE URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
+  console.log('DEBUG allCards length:', allCards?.length ?? 'null')
+  console.log('DEBUG totalByModality:', JSON.stringify(totalByModality))
   const { data: debugCards, error: debugError } = await admin
     .from('cards')
     .select('modality')
     .limit(5)
   console.log('DEBUG CARDS sample:', JSON.stringify(debugCards))
-  console.log('DEBUG ERROR:', JSON.stringify(debugError))
-  console.log('DEBUG totalByModality:', JSON.stringify(totalByModality))
-  console.log('DEBUG allCards length:', allCards?.length ?? 'null')
+  console.log('DEBUG CARDS error:', JSON.stringify(debugError))
   // ─────────────────────────────────────────────────────────────────
 
   const modalities = Object.keys(MODALITY_META) as Modality[]

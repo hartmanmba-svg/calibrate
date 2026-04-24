@@ -25,9 +25,11 @@ function scoreLabel(score: number | null): string {
 export function ReadinessRing({
   score,
   reviewCount,
+  label = 'OR Readiness',
 }: {
   score: number | null
   reviewCount: number
+  label?: string
 }) {
   const color = ringColor(score)
   const dashOffset = score !== null
@@ -90,7 +92,7 @@ export function ReadinessRing({
 
       {/* Label below ring */}
       <div className="text-center">
-        <p className="font-heading text-lg text-white">OR Readiness</p>
+        <p className="font-heading text-lg text-white">{label}</p>
         <p className="font-body text-xs mt-0.5" style={{ color }}>
           {score !== null ? scoreLabel(score) : 'Not enough data yet'}
         </p>

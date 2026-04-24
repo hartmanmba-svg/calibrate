@@ -8,6 +8,15 @@ import { CASE_TYPES } from '@/lib/case-types'
 const MIN_REVIEWS = 10
 const WINDOW_DAYS = 30
 
+// Case types that constitute "spinal" specialty
+const SPINAL_CASE_TYPES: CaseType[] = [
+  'cervical',
+  'lumbar',
+  'scoliosis',
+  'tethered_cord',
+  'spinal_tumor',
+]
+
 // ----------------------------------------------------------------
 // Types
 // ----------------------------------------------------------------
@@ -19,6 +28,7 @@ type ReviewRow = {
 
 export type ComputedScores = {
   orScore: number | null
+  spinalScore: number | null
   specialtyScores: Partial<Record<CaseType, number>>
   reviewCount: number
 }
@@ -117,5 +127,47 @@ export async function computeAndCacheScores(): Promise<ComputedScores> {
       .upsert(specialtyUpserts, { onConflict: 'user_id,score_type' })
   }
 
-  return { orScore, specialtyScores, reviewCount: reviews.length }
+  // ── Spinal score — combined across spinal case_types ────────
+  const spinalReviews = reviews.filter(
+    (r) => r.cards !== null && SPINAL_CASE_TYPES.includes(r.cards.case_type as CaseType)
+  )
+  const spinalScore = scoreFromReviews(spinalReviews)
+
+  return { orScore, spinalScore, specialtyScores, reviewCount: reviews.length }
+}
+
+// ----------------------------------------------------------------
+// Standalone spinal score server action
+// ----------------------------------------------------------------
+
+/**
+ * Compute and return the spinal specialty score for the given user.
+ * Spinal = combined reviews across cervical, lumbar, scoliosis, tethered_cord, spinal_tumor.
+ * Returns null if fewer than MIN_REVIEWS (10) reviews exist.
+ *
+ * NOTE: 'spinal' is not a value in the DB score_type enum, so this score
+ * is derived in-memory from the individual spinal case-type reviews and
+ * is NOT separately cached in readiness_scores. It is returned alongside
+ * the other scores from computeAndCacheScores().
+ */
+export async function computeSpinalScore(userId: string): Promise<number | null> {
+  const admin = createAdminClient()
+  const now = new Date()
+  const windowStart = new Date(now.getTime() - WINDOW_DAYS * 24 * 60 * 60 * 1000)
+
+  const { data: raw } = await admin
+    .from('review_log')
+    .select('rating, cards(case_type)')
+    .eq('user_id', userId)
+    .gte('reviewed_at', windowStart.toISOString())
+
+  const reviews = ((raw ?? []) as unknown as ReviewRow[]).filter(
+    (r) => r.cards !== null
+  )
+
+  const spinalReviews = reviews.filter(
+    (r) => r.cards !== null && SPINAL_CASE_TYPES.includes(r.cards.case_type as CaseType)
+  )
+
+  return scoreFromReviews(spinalReviews)
 }

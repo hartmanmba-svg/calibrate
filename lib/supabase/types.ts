@@ -74,6 +74,8 @@ export type Database = {
           streak: number
           streak_shield: boolean
           last_review_date: string | null
+          consecutive_got_it: number
+          daily_missions: Json | null
           created_at: string
           updated_at: string
         }
@@ -88,6 +90,8 @@ export type Database = {
           streak?: number
           streak_shield?: boolean
           last_review_date?: string | null
+          consecutive_got_it?: number
+          daily_missions?: Json | null
           created_at?: string
           updated_at?: string
         }
@@ -100,6 +104,8 @@ export type Database = {
           streak?: number
           streak_shield?: boolean
           last_review_date?: string | null
+          consecutive_got_it?: number
+          daily_missions?: Json | null
           updated_at?: string
         }
         Relationships: []

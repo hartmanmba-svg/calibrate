@@ -12,6 +12,9 @@ import {
   type Grade,
 } from 'ts-fsrs'
 import { totalXpForLevel } from '@/lib/xp'
+import { BADGE_DEFINITIONS } from '@/lib/badges'
+import type { BadgeKey } from '@/lib/badges'
+import type { Json } from '@/lib/supabase/types'
 
 // ----------------------------------------------------------------
 // Constants
@@ -57,6 +60,171 @@ export type ProcessReviewResult = {
   newStreak: number
   scheduledDays: number
   dueAt: string
+  earnedBadges: string[]
+  completedMissions: string[]
+}
+
+export type ReviewContext = {
+  totalReviews: number
+  currentStreak: number
+  consecutiveGotIt: number
+  sessionCardCount: number
+  reviewHour: number
+  spinalScore: number | null
+  orReadiness: number | null
+  rating: 1 | 2 | 3
+}
+
+// ----------------------------------------------------------------
+// Daily missions types
+// ----------------------------------------------------------------
+
+type Mission = {
+  key: string
+  completed: boolean
+  xp_reward: number
+}
+
+export type DailyMissions = {
+  date: string
+  missions: Mission[]
+}
+
+const DEFAULT_MISSIONS: Mission[] = [
+  { key: 'review_20', completed: false, xp_reward: 30 },
+  { key: 'drill_80', completed: false, xp_reward: 50 },
+  { key: 'maintain_streak', completed: false, xp_reward: 10 },
+]
+
+// ----------------------------------------------------------------
+// Badge checking
+// ----------------------------------------------------------------
+
+async function checkAndAwardBadges(
+  userId: string,
+  context: ReviewContext
+): Promise<string[]> {
+  const admin = createAdminClient()
+
+  // Fetch existing badge keys for this user
+  const { data: existingRows } = await admin
+    .from('badges')
+    .select('badge_key')
+    .eq('user_id', userId)
+
+  const existingKeys = new Set((existingRows ?? []).map((r) => r.badge_key))
+
+  const newBadges: { user_id: string; badge_key: BadgeKey }[] = []
+
+  for (const def of BADGE_DEFINITIONS) {
+    if (existingKeys.has(def.key)) continue
+
+    let earned = false
+    switch (def.key) {
+      case 'first_review':
+        earned = context.totalReviews >= 1
+        break
+      case 'streak_7':
+        earned = context.currentStreak >= 7
+        break
+      case 'streak_30':
+        earned = context.currentStreak >= 30
+        break
+      case 'speed_run':
+        earned = context.sessionCardCount >= 20
+        break
+      case 'sharp_eye':
+        earned = context.consecutiveGotIt >= 10
+        break
+      case 'night_owl':
+        earned = context.reviewHour >= 22
+        break
+      case 'early_bird':
+        earned = context.reviewHour < 7
+        break
+      case 'spinal_specialist':
+        earned = context.spinalScore !== null && context.spinalScore > 80
+        break
+      case 'centurion':
+        earned = context.totalReviews >= 100
+        break
+      case 'cnim_ready':
+        earned = context.orReadiness !== null && context.orReadiness > 75
+        break
+    }
+
+    if (earned) {
+      newBadges.push({ user_id: userId, badge_key: def.key })
+    }
+  }
+
+  if (newBadges.length > 0) {
+    await admin.from('badges').insert(newBadges)
+  }
+
+  return newBadges.map((b) => b.badge_key)
+}
+
+// ----------------------------------------------------------------
+// Daily missions
+// ----------------------------------------------------------------
+
+async function checkDailyMissions(
+  userId: string,
+  context: { todayDate: string; reviewCount: number; streak: number }
+): Promise<string[]> {
+  const admin = createAdminClient()
+
+  const { data: profileRow } = await admin
+    .from('profiles')
+    .select('daily_missions, xp')
+    .eq('id', userId)
+    .single()
+
+  if (!profileRow) return []
+
+  // Parse or reset missions
+  let dm: DailyMissions | null = null
+  const raw = profileRow.daily_missions as DailyMissions | null
+
+  if (raw && raw.date === context.todayDate) {
+    dm = raw
+  } else {
+    dm = { date: context.todayDate, missions: DEFAULT_MISSIONS.map((m) => ({ ...m })) }
+  }
+
+  const completedKeys: string[] = []
+  let xpBonus = 0
+
+  const updatedMissions = dm.missions.map((mission) => {
+    if (mission.completed) return mission
+
+    let nowComplete = false
+    if (mission.key === 'review_20' && context.reviewCount >= 20) nowComplete = true
+    if (mission.key === 'maintain_streak' && context.streak >= 1) nowComplete = true
+    // drill_80 is not auto-completable from processReview (requires a separate drill score)
+
+    if (nowComplete) {
+      completedKeys.push(mission.key)
+      xpBonus += mission.xp_reward
+      return { ...mission, completed: true }
+    }
+    return mission
+  })
+
+  dm.missions = updatedMissions
+
+  const updatePayload: { daily_missions: Json; xp?: number } = {
+    daily_missions: dm as unknown as Json,
+  }
+
+  if (xpBonus > 0) {
+    updatePayload.xp = (profileRow.xp ?? 0) + xpBonus
+  }
+
+  await admin.from('profiles').update(updatePayload).eq('id', userId)
+
+  return completedKeys
 }
 
 // ----------------------------------------------------------------
@@ -138,11 +306,11 @@ export async function processReview(
     reviewed_at: now.toISOString(),
   })
 
-  // ── Profile: XP + streak ──────────────────────────────────────
+  // ── Profile: XP + streak + consecutive_got_it ────────────────
 
   const { data: profile } = await admin
     .from('profiles')
-    .select('xp, level, streak, streak_shield, last_review_date')
+    .select('xp, level, streak, streak_shield, last_review_date, consecutive_got_it')
     .eq('id', user.id)
     .single()
 
@@ -183,6 +351,10 @@ export async function processReview(
     newLevel++
   }
 
+  // Track consecutive Got it
+  const prevConsecutive = profile.consecutive_got_it ?? 0
+  const newConsecutive = calibrateRating === 3 ? prevConsecutive + 1 : 0
+
   await admin
     .from('profiles')
     .update({
@@ -191,9 +363,45 @@ export async function processReview(
       streak: newStreak,
       streak_shield: newShield,
       last_review_date: today,
+      consecutive_got_it: newConsecutive,
       updated_at: now.toISOString(),
     })
     .eq('id', user.id)
+
+  // ── Fetch total review count ──────────────────────────────────
+  const { count: totalReviews } = await admin
+    .from('review_log')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+
+  // ── Fetch cached readiness scores for badge context ──────────
+  const { data: scoreRows } = await admin
+    .from('readiness_scores')
+    .select('score_type, score')
+    .eq('user_id', user.id)
+    .in('score_type', ['or_readiness'])
+
+  const orReadiness =
+    scoreRows?.find((s) => s.score_type === 'or_readiness')?.score ?? null
+
+  // ── Award badges ──────────────────────────────────────────────
+  const earnedBadges = await checkAndAwardBadges(user.id, {
+    totalReviews: totalReviews ?? 0,
+    currentStreak: newStreak,
+    consecutiveGotIt: newConsecutive,
+    sessionCardCount: 1, // single-review context; session tracking is client-side
+    reviewHour: now.getHours(),
+    spinalScore: null, // expensive to compute on every review; null is safe
+    orReadiness,
+    rating: calibrateRating,
+  })
+
+  // ── Daily missions ────────────────────────────────────────────
+  const completedMissions = await checkDailyMissions(user.id, {
+    todayDate: today,
+    reviewCount: totalReviews ?? 0,
+    streak: newStreak,
+  })
 
   return {
     xpEarned,
@@ -202,5 +410,7 @@ export async function processReview(
     newStreak,
     scheduledDays: next.scheduled_days,
     dueAt: next.due.toISOString(),
+    earnedBadges,
+    completedMissions,
   }
 }

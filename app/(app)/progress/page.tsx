@@ -1,15 +1,38 @@
 import { createClient } from '@/lib/supabase/server'
 import { computeAndCacheScores } from '@/app/actions/scores'
-import { CASE_TYPES, CASE_TYPE_LABELS } from '@/lib/case-types'
 import { computeXpProgress } from '@/lib/xp'
 import { ReadinessRing } from './ReadinessRing'
-import type { CaseType, CareerStage } from '@/lib/supabase/types'
+import { BADGE_DEFINITIONS } from '@/lib/badges'
+import type { CareerStage } from '@/lib/supabase/types'
 
 // ----------------------------------------------------------------
-// Constants
+// Career path stepper config
+// 5 display stages — "Trainee" is display-only (no DB value)
 // ----------------------------------------------------------------
 
-const CAREER_STAGES: CareerStage[] = ['student', 'candidate', 'certified', 'supervisor']
+type StepperStage = {
+  label: string
+  dbValue: CareerStage | null // null = display-only
+}
+
+const STEPPER_STAGES: StepperStage[] = [
+  { label: 'Student',   dbValue: 'student' },
+  { label: 'Trainee',   dbValue: null },       // display-only intermediate
+  { label: 'Candidate', dbValue: 'candidate' },
+  { label: 'CNIM',      dbValue: 'certified' },
+  { label: 'Expert',    dbValue: 'supervisor' },
+]
+
+// Map DB career_stage → which stepper index is "active"
+function stepperIndex(stage: CareerStage): number {
+  switch (stage) {
+    case 'student':    return 0
+    case 'candidate':  return 2
+    case 'certified':  return 3
+    case 'supervisor': return 4
+    default:           return 0
+  }
+}
 
 const CAREER_STAGE_LABELS: Record<CareerStage, string> = {
   student:    'Student',
@@ -19,25 +42,14 @@ const CAREER_STAGE_LABELS: Record<CareerStage, string> = {
 }
 
 // ----------------------------------------------------------------
-// Helpers
+// Specialty grid config (7 cells)
 // ----------------------------------------------------------------
 
-function scoreColor(score: number): string {
-  if (score >= 80) return 'text-green'
-  if (score >= 60) return 'text-gold'
-  return 'text-red'
-}
-
-function scoreBg(score: number): string {
-  if (score >= 80) return 'border-green/25 bg-green/5'
-  if (score >= 60) return 'border-gold/25 bg-gold/5'
-  return 'border-red/25 bg-red/5'
-}
-
-function scoreBarColor(score: number): string {
-  if (score >= 80) return 'bg-green'
-  if (score >= 60) return 'bg-gold'
-  return 'bg-red'
+type SpecialtyCell = {
+  label: string
+  scoreKey: 'spinal' | null
+  locked: boolean
+  lockedLabel: string | null
 }
 
 // ----------------------------------------------------------------
@@ -45,16 +57,16 @@ function scoreBarColor(score: number): string {
 // ----------------------------------------------------------------
 
 function CareerPath({ current }: { current: CareerStage }) {
-  const idx = CAREER_STAGES.indexOf(current)
+  const activeIdx = stepperIndex(current)
   return (
     <div className="bg-navy border border-[rgba(255,255,255,0.10)] rounded-2xl p-6">
       <p className="font-body text-xs text-muted uppercase tracking-widest mb-5">Career path</p>
       <div className="flex items-center">
-        {CAREER_STAGES.map((stage, i) => {
-          const active = stage === current
-          const past = i < idx
+        {STEPPER_STAGES.map((stage, i) => {
+          const active = i === activeIdx
+          const past = i < activeIdx
           return (
-            <div key={stage} className="flex items-center flex-1 last:flex-none">
+            <div key={stage.label} className="flex items-center flex-1 last:flex-none">
               {/* Node */}
               <div className="flex flex-col items-center gap-1.5 z-10">
                 <div
@@ -78,13 +90,13 @@ function CareerPath({ current }: { current: CareerStage }) {
                   className={`font-body text-[10px] text-center leading-tight max-w-[60px]
                     ${active ? 'text-orange' : past ? 'text-teal' : 'text-muted'}`}
                 >
-                  {CAREER_STAGE_LABELS[stage]}
+                  {stage.label}
                 </span>
               </div>
               {/* Connector */}
-              {i < CAREER_STAGES.length - 1 && (
+              {i < STEPPER_STAGES.length - 1 && (
                 <div
-                  className={`flex-1 h-0.5 -mt-5 ${i < idx ? 'bg-teal' : 'bg-[rgba(255,255,255,0.10)]'}`}
+                  className={`flex-1 h-0.5 -mt-5 ${i < activeIdx ? 'bg-teal' : 'bg-[rgba(255,255,255,0.10)]'}`}
                 />
               )}
             </div>
@@ -131,24 +143,81 @@ function XpCard({ xp, level, streak }: { xp: number; level: number; streak: numb
   )
 }
 
-function SpecialtyGrid({ specialtyScores }: { specialtyScores: Partial<Record<CaseType, number>> }) {
+function SpecialtyGrid({
+  spinalScore,
+  careerStage,
+}: {
+  spinalScore: number | null
+  careerStage: CareerStage
+}) {
+  const isAdvanced = careerStage === 'certified' || careerStage === 'supervisor'
+
+  const cells: SpecialtyCell[] = [
+    { label: 'Spinal',        scoreKey: 'spinal', locked: false, lockedLabel: null },
+    { label: 'Vascular',      scoreKey: null,     locked: false, lockedLabel: null },
+    { label: 'Cranial',       scoreKey: null,     locked: false, lockedLabel: null },
+    { label: 'ENT',           scoreKey: null,     locked: false, lockedLabel: null },
+    { label: 'Pediatrics',    scoreKey: null,     locked: false, lockedLabel: null },
+    { label: 'Extremity',     scoreKey: null,     locked: false, lockedLabel: null },
+    {
+      label: 'Spinal Tumors',
+      scoreKey: null,
+      locked: !isAdvanced,
+      lockedLabel: 'Unlocks at CNIM',
+    },
+  ]
+
+  function scoreColor(score: number): string {
+    if (score >= 80) return 'text-green'
+    if (score >= 60) return 'text-gold'
+    return 'text-red'
+  }
+
+  function scoreBg(score: number): string {
+    if (score >= 80) return 'border-green/25 bg-green/5'
+    if (score >= 60) return 'border-gold/25 bg-gold/5'
+    return 'border-red/25 bg-red/5'
+  }
+
+  function scoreBarColor(score: number): string {
+    if (score >= 80) return 'bg-green'
+    if (score >= 60) return 'bg-gold'
+    return 'bg-red'
+  }
+
   return (
     <div>
       <p className="font-body text-xs text-muted uppercase tracking-widest mb-4">
         Specialty scores
       </p>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-        {CASE_TYPES.map((caseType) => {
-          const score = specialtyScores[caseType] ?? null
+        {cells.map((cell) => {
+          const score = cell.scoreKey === 'spinal' ? spinalScore : null
+
+          if (cell.locked) {
+            return (
+              <div
+                key={cell.label}
+                className="rounded-xl border border-[rgba(255,255,255,0.06)] bg-dark/50 p-4 flex flex-col gap-2 opacity-60"
+              >
+                <p className="font-body text-xs text-muted leading-tight">{cell.label}</p>
+                <div className="flex items-center gap-1.5">
+                  <svg className="w-4 h-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  <p className="font-body text-[11px] text-muted leading-tight">{cell.lockedLabel}</p>
+                </div>
+              </div>
+            )
+          }
+
           return (
             <div
-              key={caseType}
+              key={cell.label}
               className={`rounded-xl border p-4 flex flex-col gap-2
                 ${score !== null ? scoreBg(score) : 'border-[rgba(255,255,255,0.08)] bg-navy'}`}
             >
-              <p className="font-body text-xs text-muted leading-tight">
-                {CASE_TYPE_LABELS[caseType]}
-              </p>
+              <p className="font-body text-xs text-muted leading-tight">{cell.label}</p>
               {score !== null ? (
                 <>
                   <p className={`font-heading text-2xl ${scoreColor(score)}`}>{score}</p>
@@ -184,26 +253,33 @@ export default async function ProgressPage() {
 
   // Compute fresh scores — never throw; show empty state on any error
   let orScore: number | null = null
-  let specialtyScores: Partial<Record<CaseType, number>> = {}
+  let spinalScore: number | null = null
   let reviewCount = 0
   try {
-    ;({ orScore, specialtyScores, reviewCount } = await computeAndCacheScores())
+    ;({ orScore, spinalScore, reviewCount } = await computeAndCacheScores())
   } catch {
     // DB error or env-var misconfiguration — render with empty data
   }
 
-  // Profile: level, XP, streak, career stage
+  // Profile: level, XP, streak, career stage (user-scoped RLS client)
   const { data: profile } = await supabase
     .from('profiles')
     .select('xp, level, streak, career_stage')
     .eq('id', uid)
     .maybeSingle()
 
-  // Use safe defaults when profile row doesn't exist yet
   const xp = profile?.xp ?? 0
   const level = profile?.level ?? 1
   const streak = profile?.streak ?? 0
   const careerStage = (profile?.career_stage ?? 'student') as CareerStage
+
+  // Fetch earned badges (user-scoped RLS client)
+  const { data: earnedRows } = await supabase
+    .from('badges')
+    .select('badge_key')
+    .eq('user_id', uid)
+
+  const earnedKeys = new Set((earnedRows ?? []).map((r) => r.badge_key))
 
   return (
     <div className="flex flex-col gap-8 max-w-3xl mx-auto">
@@ -216,13 +292,13 @@ export default async function ProgressPage() {
         </p>
       </div>
 
-      {/* Career path */}
+      {/* Section 1 — Career Path stepper */}
       <CareerPath current={careerStage} />
 
-      {/* OR Readiness + XP */}
+      {/* Section 2 — Score Rings: OR Readiness + Spinal */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         <div className="bg-navy border border-[rgba(255,255,255,0.10)] rounded-2xl p-8 flex flex-col items-center gap-2">
-          <ReadinessRing score={orScore} reviewCount={reviewCount} />
+          <ReadinessRing score={orScore} reviewCount={reviewCount} label="OR Readiness" />
           {orScore === null && (
             <a
               href="/study/flashcards"
@@ -233,11 +309,53 @@ export default async function ProgressPage() {
           )}
         </div>
 
-        <XpCard xp={xp} level={level} streak={streak} />
+        <div className="bg-navy border border-[rgba(255,255,255,0.10)] rounded-2xl p-8 flex flex-col items-center gap-2">
+          <ReadinessRing score={spinalScore} reviewCount={reviewCount} label="Spinal" />
+          {spinalScore === null && (
+            <a
+              href="/study/flashcards"
+              className="mt-2 font-body text-xs text-orange hover:underline"
+            >
+              Study spinal cases to unlock →
+            </a>
+          )}
+        </div>
       </div>
 
-      {/* Specialty scores */}
-      <SpecialtyGrid specialtyScores={specialtyScores} />
+      {/* XP card */}
+      <XpCard xp={xp} level={level} streak={streak} />
+
+      {/* Section 3 — Specialty Score Grid */}
+      <SpecialtyGrid spinalScore={spinalScore} careerStage={careerStage} />
+
+      {/* Section 4 — Badge Shelf */}
+      {/* TODO: Badge Shelf — populated in Step 4 */}
+      <div>
+        <p className="font-body text-xs text-muted uppercase tracking-widest mb-4">Badges</p>
+        <div className="flex flex-wrap gap-3">
+          {BADGE_DEFINITIONS.map((def) => {
+            const earned = earnedKeys.has(def.key)
+            return (
+              <div
+                key={def.key}
+                title={def.description}
+                className={`flex flex-col items-center gap-1.5 w-20 p-3 rounded-xl border text-center
+                  ${earned
+                    ? 'border-teal/30 bg-teal/5'
+                    : 'border-[rgba(255,255,255,0.06)] bg-dark/40 opacity-50'
+                  }`}
+              >
+                <span className="text-2xl" role="img" aria-label={def.label}>
+                  {earned ? def.icon : '🔒'}
+                </span>
+                <span className={`font-body text-[10px] leading-tight ${earned ? 'text-white' : 'text-muted'}`}>
+                  {def.label}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
 
       {/* Footer note */}
       <p className="font-body text-xs text-muted text-center pb-4">

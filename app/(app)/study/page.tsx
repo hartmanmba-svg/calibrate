@@ -41,15 +41,25 @@ export default async function StudyPage() {
   const admin = createAdminClient()
 
   // Fetch all decks
-  const { data: decks } = await admin
+  const { data: decks, error: decksError } = await admin
     .from('decks')
     .select('id, name, description')
     .order('name')
 
+  // Fetch card counts — try without deck_id first to confirm table is reachable
+  const { data: allCardsSimple, error: cardsSimpleError } = await admin
+    .from('cards')
+    .select('id')
+    .limit(3)
+
   // Fetch card counts per deck
-  const { data: allCards } = await admin
+  const { data: allCards, error: cardsError } = await admin
     .from('cards')
     .select('id, deck_id')
+
+  console.log('DECKS ERROR:', JSON.stringify(decksError))
+  console.log('CARDS SIMPLE (id only):', JSON.stringify(allCardsSimple), JSON.stringify(cardsSimpleError))
+  console.log('CARDS WITH deck_id ERROR:', JSON.stringify(cardsError))
 
   const countByDeck = (allCards ?? []).reduce<Record<string, number>>((acc, c) => {
     if (c.deck_id) acc[c.deck_id] = (acc[c.deck_id] ?? 0) + 1
@@ -83,7 +93,7 @@ export default async function StudyPage() {
 
       {/* ── TEMP DEBUG — remove after verifying ── */}
       <p style={{ color: 'red', fontWeight: 'bold' }}>
-        DECKS COUNT: {deckList.length} | CARDS COUNT: {allCards?.length ?? 'null'} | DECKS DATA: {JSON.stringify(deckList.map(d => d.name))}
+        DECKS: {deckList.length} | CARDS_SIMPLE: {allCardsSimple?.length ?? 'null'} | CARDS_WITH_DECKID: {allCards?.length ?? 'null'}
       </p>
       {/* ───────────────────────────────────────── */}
 

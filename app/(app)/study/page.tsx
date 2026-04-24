@@ -81,6 +81,12 @@ export default async function StudyPage() {
   return (
     <div className="space-y-8">
 
+      {/* ── TEMP DEBUG — remove after verifying ── */}
+      <p style={{ color: 'red', fontWeight: 'bold' }}>
+        DECKS COUNT: {deckList.length} | CARDS COUNT: {allCards?.length ?? 'null'} | DECKS DATA: {JSON.stringify(deckList.map(d => d.name))}
+      </p>
+      {/* ───────────────────────────────────────── */}
+
       {/* ── Header ── */}
       <div>
         <h1 className="font-heading text-3xl text-white">Study</h1>

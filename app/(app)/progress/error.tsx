@@ -16,7 +16,7 @@ export default function ProgressError({
 
   return (
     <div className="flex flex-col items-center justify-center gap-6 py-20 text-center">
-      <p className="font-heading text-xl text-white">Couldn't load progress data</p>
+      <p className="font-heading text-xl text-white">Could not load progress data</p>
       <p className="font-body text-sm text-muted max-w-sm">
         There was a problem fetching your scores. Your study history is safe — this is a temporary display issue.
       </p>

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { seedCards } from '@/app/actions/seed'
 import type { Modality } from '@/lib/supabase/types'
 
 // ----------------------------------------------------------------
@@ -21,6 +22,10 @@ const MODALITY_META: Record<Modality, { label: string; description: string; icon
 // ----------------------------------------------------------------
 
 export default async function StudyPage() {
+  // Ensure seed cards exist — no-op if the table already has rows.
+  // Silently swallows errors (missing env vars in local dev, etc.)
+  try { await seedCards() } catch { /* ignore */ }
+
   const supabase = createClient()
 
   const { data: { user } } = await supabase.auth.getUser()

@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import type { Metadata } from 'next'
 import type { CareerStage, CredentialType } from '@/lib/supabase/types'
 import { BADGE_DEFINITIONS } from '@/lib/badges'
 
@@ -6,6 +7,72 @@ import { BADGE_DEFINITIONS } from '@/lib/badges'
 
 interface Props {
   params: Promise<{ token: string }>
+}
+
+const CAREER_STAGE_LABELS_META: Record<CareerStage, string> = {
+  student:    'Student',
+  candidate:  'CNIM Candidate',
+  certified:  'Certified Practitioner',
+  supervisor: 'Supervisory Neurophysiologist',
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { token } = await params
+  const admin = createAdminClient()
+
+  const { data: shareLink } = await admin
+    .from('share_links')
+    .select('user_id, show_name, show_scores')
+    .eq('token', token)
+    .maybeSingle()
+
+  if (!shareLink) {
+    return { title: 'Profile not found — Calibrate' }
+  }
+
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('full_name, career_stage')
+    .eq('id', shareLink.user_id)
+    .maybeSingle()
+
+  const { data: scoreRow } = shareLink.show_scores
+    ? await admin
+        .from('readiness_scores')
+        .select('score')
+        .eq('user_id', shareLink.user_id)
+        .eq('score_type', 'or_readiness')
+        .maybeSingle()
+    : { data: null }
+
+  const name = shareLink.show_name
+    ? (profile?.full_name ?? 'An IONM practitioner')
+    : 'An IONM practitioner'
+  const stage = profile?.career_stage
+    ? CAREER_STAGE_LABELS_META[profile.career_stage as CareerStage]
+    : ''
+  const scoreText = scoreRow ? ` · OR Readiness: ${scoreRow.score}` : ''
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://calibrate.app'
+
+  const title = `${name}'s Calibrate Profile`
+  const description = `${stage}${scoreText} — Calibrate: Sharpen your edge.`
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: `${appUrl}/p/${token}`,
+      siteName: 'Calibrate',
+      type: 'profile',
+    },
+    twitter: {
+      card: 'summary',
+      title,
+      description,
+    },
+  }
 }
 
 const CAREER_STAGE_LABELS: Record<CareerStage, string> = {

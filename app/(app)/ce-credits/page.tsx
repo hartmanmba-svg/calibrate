@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getSubscription } from '@/lib/subscription'
 import { UpgradePrompt } from '@/components/UpgradePrompt'
+import { ModuleActions } from './ModuleActions'
 import type { CeModule, CeCompletion } from '@/lib/supabase/types'
 
 export const dynamic = 'force-dynamic'
@@ -128,20 +129,27 @@ export default async function CECreditsPage() {
 
                 <ProgressBar pct={progress} />
 
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
                   <p className="font-body text-xs text-muted">
                     {Math.round(progress * 100)}% complete
                   </p>
-                  {isCompleted && (
-                    <a
-                      href={`/api/certificates/generate?module_id=${mod.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-body text-xs text-orange hover:underline"
-                    >
-                      Download certificate
-                    </a>
-                  )}
+                  <div className="flex items-center gap-3">
+                    <ModuleActions
+                      moduleId={mod.id}
+                      isStarted={Boolean(completion)}
+                      isCompleted={isCompleted}
+                    />
+                    {isCompleted && (
+                      <a
+                        href={`/api/certificates/generate?module_id=${mod.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-body text-xs text-orange hover:underline"
+                      >
+                        Download certificate →
+                      </a>
+                    )}
+                  </div>
                 </div>
               </div>
             )

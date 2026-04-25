@@ -33,32 +33,16 @@ export default async function ProfilePage() {
   let showBadges = true
 
   if (uid) {
-    const { data: existingLink } = await admin
-      .from('share_links')
-      .select('token, show_name, show_scores, show_credentials, show_badges')
-      .eq('user_id', uid)
-      .maybeSingle()
-
-    if (existingLink) {
-      shareToken        = existingLink.token
-      showName        = existingLink.show_name
-      showScores      = existingLink.show_scores
-      showCredentials = existingLink.show_credentials
-      showBadges      = existingLink.show_badges
-    } else {
-      // Auto-create on first visit
-      const { data: newLink } = await admin
-        .from('share_links')
-        .insert({ user_id: uid })
-        .select('token, show_name, show_scores, show_credentials, show_badges')
-        .maybeSingle()
-      if (newLink) {
-        shareToken        = newLink.token
-        showName        = newLink.show_name
-        showScores      = newLink.show_scores
-        showCredentials = newLink.show_credentials
-        showBadges      = newLink.show_badges
-      }
+    // Use RPC to upsert share link — avoids PostgREST schema cache issues
+    // on fresh tables (PGRST205 on direct INSERT).
+    const { data: rows } = await admin.rpc('upsert_share_link', { p_user_id: uid })
+    const link = rows?.[0] ?? null
+    if (link) {
+      shareToken        = link.token
+      showName          = link.show_name
+      showScores        = link.show_scores
+      showCredentials   = link.show_credentials
+      showBadges        = link.show_badges
     }
   }
 

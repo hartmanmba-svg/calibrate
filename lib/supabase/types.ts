@@ -441,7 +441,18 @@ export type Database = {
       }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      upsert_share_link: {
+        Args: { p_user_id: string }
+        Returns: {
+          token: string
+          show_name: boolean
+          show_scores: boolean
+          show_credentials: boolean
+          show_badges: boolean
+        }[]
+      }
+    }
     Enums: {
       career_stage: CareerStage
       modality: Modality

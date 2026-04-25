@@ -24,7 +24,7 @@ export async function saveCareerStage(stage: CareerStage): Promise<{ error: stri
     .upsert({ id: user.id, email: user.email ?? '', career_stage: stage })
 
   if (error) {
-    return { error: 'Failed to save. Please try again.' }
+    return { error: `Failed to save: ${error.message}` }
   }
 
   return { error: null }

@@ -58,8 +58,7 @@ export default function OnboardingPage() {
 
     const { error: updateError } = await supabase
       .from('profiles')
-      .update({ career_stage: selected })
-      .eq('id', user.id)
+      .upsert({ id: user.id, email: user.email ?? '', career_stage: selected })
 
     if (updateError) {
       setError('Something went wrong. Please try again.')

@@ -5,7 +5,7 @@ export async function GET() {
   const admin = createAdminClient()
 
   // Try to count rows in share_links
-  const { data, error } = await admin
+  const { error } = await admin
     .from('share_links')
     .select('id', { count: 'exact', head: true })
 

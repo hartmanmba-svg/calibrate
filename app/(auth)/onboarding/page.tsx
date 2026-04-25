@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { saveCareerStage } from '@/app/actions/onboarding'
 import type { CareerStage } from '@/lib/supabase/types'
 
 const STAGES: {
@@ -39,7 +39,6 @@ const STAGES: {
 
 export default function OnboardingPage() {
   const router = useRouter()
-  const supabase = createClient()
   const [selected, setSelected] = useState<CareerStage | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -49,19 +48,10 @@ export default function OnboardingPage() {
     setSaving(true)
     setError(null)
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const { error: saveError } = await saveCareerStage(selected)
 
-    if (!user) {
-      router.push('/login')
-      return
-    }
-
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .upsert({ id: user.id, email: user.email ?? '', career_stage: selected })
-
-    if (updateError) {
-      setError('Something went wrong. Please try again.')
+    if (saveError) {
+      setError(saveError)
       setSaving(false)
       return
     }

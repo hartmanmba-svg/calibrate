@@ -4,22 +4,15 @@ import { NextResponse } from 'next/server'
 export async function GET() {
   const admin = createAdminClient()
 
-  // Check share_links table exists
-  const { error: selectErr } = await admin
-    .from('share_links')
-    .select('id', { count: 'exact', head: true })
-
-  // Test the RPC
-  const testUserId = 'fb3d89d2-bb87-415e-88e9-db3f0b7dc552' // testuser123
-  const { data: rpcData, error: rpcErr } = await admin.rpc('upsert_share_link', {
-    p_user_id: testUserId,
-  })
+  // List all tables in public schema
+  const { data: tables, error: tablesErr } = await admin
+    .from('information_schema.tables' as never)
+    .select('table_name')
+    .eq('table_schema', 'public')
+    .eq('table_type', 'BASE TABLE')
 
   return NextResponse.json({
-    share_links_exists: !selectErr,
-    select_error: selectErr?.message ?? null,
-    rpc_result: rpcData ?? null,
-    rpc_error: rpcErr?.message ?? null,
-    rpc_error_code: rpcErr?.code ?? null,
+    tables: (tables as { table_name: string }[] | null)?.map((t) => t.table_name).sort() ?? null,
+    tables_error: tablesErr?.message ?? null,
   })
 }

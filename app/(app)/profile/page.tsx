@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { ProfileForm } from './ProfileForm'
 import { ProfilePrivacyForm } from './ProfilePrivacyForm'
 import { CopyLinkButton } from './CopyLinkButton'
@@ -6,6 +7,7 @@ import type { CareerStage } from '@/lib/supabase/types'
 
 export default async function ProfilePage() {
   const supabase = createClient()
+  const admin = createAdminClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   // No redirect — middleware handles unauthenticated users.
@@ -23,7 +25,7 @@ export default async function ProfilePage() {
   const level       = profile?.level       ?? 1
   const streak      = profile?.streak      ?? 0
 
-  // Fetch or create share link
+  // Fetch or create share link — use admin client to avoid RLS insert issues
   let shareToken: string | null = null
   let showName = true
   let showScores = true
@@ -31,7 +33,7 @@ export default async function ProfilePage() {
   let showBadges = true
 
   if (uid) {
-    const { data: existingLink } = await supabase
+    const { data: existingLink } = await admin
       .from('share_links')
       .select('token, show_name, show_scores, show_credentials, show_badges')
       .eq('user_id', uid)
@@ -45,7 +47,7 @@ export default async function ProfilePage() {
       showBadges      = existingLink.show_badges
     } else {
       // Auto-create on first visit
-      const { data: newLink } = await supabase
+      const { data: newLink } = await admin
         .from('share_links')
         .insert({ user_id: uid })
         .select('token, show_name, show_scores, show_credentials, show_badges')

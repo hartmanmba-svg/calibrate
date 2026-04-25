@@ -31,7 +31,7 @@ const PROTECTED_PATHS = [
   '/employer',
 ]
 
-const AUTH_PATHS = ['/login', '/signup', '/onboarding']
+const AUTH_PATHS = ['/login', '/signup']
 
 function isProtected(pathname: string) {
   return PROTECTED_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))

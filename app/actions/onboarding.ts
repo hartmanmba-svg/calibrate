@@ -19,12 +19,27 @@ export async function saveCareerStage(stage: CareerStage): Promise<{ error: stri
   }
 
   const admin = createAdminClient()
-  const { error } = await admin
-    .from('profiles')
-    .upsert({ id: user.id, email: user.email ?? '', career_stage: stage })
 
-  if (error) {
-    return { error: `Failed to save: ${error.message}` }
+  // Try UPDATE first — profile row likely already exists with career_stage null
+  const { error: updateError, data: updated } = await admin
+    .from('profiles')
+    .update({ career_stage: stage })
+    .eq('id', user.id)
+    .select('id')
+
+  if (updateError) {
+    return { error: `Update failed: ${updateError.message}` }
+  }
+
+  // If no row was updated, INSERT a new one
+  if (!updated || updated.length === 0) {
+    const { error: insertError } = await admin
+      .from('profiles')
+      .insert({ id: user.id, email: user.email ?? '', career_stage: stage })
+
+    if (insertError) {
+      return { error: `Insert failed: ${insertError.message}` }
+    }
   }
 
   return { error: null }

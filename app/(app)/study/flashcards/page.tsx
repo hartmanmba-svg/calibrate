@@ -8,6 +8,8 @@ import {
   type Card as FsrsCard,
 } from 'ts-fsrs'
 import { FlashcardSession } from './FlashcardSession'
+import { getSubscription } from '@/lib/subscription'
+import { UpgradePrompt } from '@/components/UpgradePrompt'
 import type { SessionCard } from './FlashcardSession'
 
 // ----------------------------------------------------------------
@@ -59,6 +61,30 @@ export default async function FlashcardsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   // No redirect — middleware handles unauthenticated users.
   const uid = user?.id ?? ''
+
+  // ── Free plan gate: 20-card limit ────────────────────────────
+  const sub = await getSubscription(uid)
+  if (sub.isFree) {
+    const { count: reviewCount } = await supabase
+      .from('card_reviews')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', uid)
+
+    const totalReviewed = reviewCount ?? 0
+    if (totalReviewed >= 20) {
+      return (
+        <div className="flex flex-col items-center gap-6 py-16 max-w-md mx-auto text-center">
+          <p className="font-body text-sm text-muted">
+            You&apos;ve reviewed {totalReviewed} cards on the free plan.
+          </p>
+          <UpgradePrompt
+            feature="Unlimited flashcards"
+            description="You've reached the 20-card limit on the free plan. Upgrade to unlock all flashcards across every modality and case type."
+          />
+        </div>
+      )
+    }
+  }
 
   const now = new Date()
   const SESSION_SIZE = 20

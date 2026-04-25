@@ -1,4 +1,7 @@
 import type { ReactNode } from 'react'
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { headers } from 'next/headers'
 
 // ----------------------------------------------------------------
 // Nav items
@@ -15,7 +18,30 @@ const NAV_ITEMS = [
 // Layout
 // ----------------------------------------------------------------
 
-export default function AppLayout({ children }: { children: ReactNode }) {
+export default async function AppLayout({ children }: { children: ReactNode }) {
+  // ── Onboarding gate ───────────────────────────────────────────
+  // Read the current pathname from the x-pathname header injected
+  // by middleware (or fall back to the referer) to avoid redirect
+  // loops when the user is already on /onboarding.
+  const headersList = headers()
+  const pathname = headersList.get('x-pathname') ?? ''
+
+  if (!pathname.startsWith('/onboarding') && !pathname.startsWith('/checkout')) {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('career_stage')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (!profile || !profile.career_stage) {
+        redirect('/onboarding')
+      }
+    }
+  }
   return (
     <div className="min-h-screen bg-dark flex flex-col">
 

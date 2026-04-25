@@ -1,37 +1,43 @@
-# Calibrate Phase 4 — Todo
+# Calibrate Phase 5 — Todo
 
-## Item 1 — PWA Offline Support for Flashcards
-- [x] Create public/manifest.json
-- [x] Add manifest link + theme-color meta tag to app/layout.tsx
-- [x] Create public/sw.js (service worker — vanilla JS)
-- [x] Create app/offline/page.tsx (standalone offline fallback)
-- [x] Create app/(app)/components/ServiceWorkerRegistrar.tsx (client component)
-- [x] Import + render ServiceWorkerRegistrar in app/layout.tsx
+## Task 1 — tasks/todo.md
+- [x] Create/overwrite tasks/todo.md with Phase 5 checklist
 
-## Item 2 — Weekly Case Drop
-- [x] Create lib/weekly-case.ts with WeeklyCase type + CURRENT_WEEKLY_CASE constant
-- [x] Create app/(app)/resources/components/WeeklyCaseQuiz.tsx (client component)
-- [x] Build out app/(app)/resources/page.tsx (server component wrapping quiz + resource cards)
+## Task 2 — lib/subscription.ts
+- [x] Create server-side getSubscription(userId) helper
 
-## Item 3 — Web Push Notifications
-- [x] Create .env.local.example with VAPID key placeholders
-- [x] Create app/api/push/subscribe/route.ts (POST handler)
-- [x] Create app/api/push/send/route.ts (POST handler placeholder)
-- [x] Create app/(app)/settings/components/PushNotificationToggle.tsx (client component)
-- [x] Build out app/(app)/settings/page.tsx (server wrapper + notification + account + danger zone)
+## Task 3 — app/(marketing)/pricing/page.tsx
+- [x] Update pricing page with correct feature lists and plan CTAs
+- [x] Ensure (marketing)/layout.tsx exists (already present)
 
-## Item 4 — Remaining Specialty Scores + Credentials
-- [x] Add computeVascularScore, computeCranialScore, computePediatricsScore, computeExtremityScore, computeSpinalTumorScore to app/actions/scores.ts
-- [x] Update computeAndCacheScores() to return all 6 specialty score groups
-- [x] Update ComputedScores type
-- [x] Update app/(app)/progress/page.tsx — fill specialty grid with live data
-- [x] Create app/actions/credentials.ts — checkCredentials(userId)
-- [x] Call checkCredentials from processReview in app/actions/review.ts
-- [x] Add credentialsUpdated: boolean to ProcessReviewResult
-- [x] Add Credentials section to app/(app)/progress/page.tsx
+## Task 4 — components/UpgradePrompt.tsx
+- [x] Create UpgradePrompt client component (lock icon, feature name, upgrade CTA)
 
-## Finishing
+## Task 5 — Paywall gates in existing pages
+- [x] app/(app)/progress/page.tsx — gate specialty grid for free users
+- [x] app/(app)/ce-credits/page.tsx — gate entire page for free users
+- [x] app/(app)/study/flashcards/page.tsx — gate after 20 card reviews for free users
+
+## Task 6 — Settings subscription section + billing portal
+- [x] Add Subscription section to app/(app)/settings/page.tsx
+- [x] Create app/api/billing-portal/route.ts (POST → Stripe portal session)
+
+## Task 7 — Post-checkout success page
+- [x] Create app/(app)/checkout/success/page.tsx
+
+## Task 8 — Onboarding redirect gate
+- [x] Make app/(app)/layout.tsx async, add profile check + redirect to /onboarding
+- [x] Add x-pathname header injection in middleware.ts
+
+## Task 9 — Update api/checkout/route.ts
+- [x] Add team plan support, allow_promotion_codes, update success_url
+
+## Task 10 — Type-check and build
 - [x] npx tsc --noEmit — passes clean
-- [x] npx next build — passes clean (29 pages, no errors)
-- [x] Updated tasks/lessons.md with Phase 4 patterns
-- [x] Git commit
+- [x] npx next build — passes clean (31 pages, no errors)
+
+## Task 11 — Update tasks/todo.md (check off completed items)
+- [x] Mark all completed items
+
+## Task 12 — Git commit
+- [x] git add -A && git commit

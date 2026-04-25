@@ -3,6 +3,8 @@ import { computeAndCacheScores } from '@/app/actions/scores'
 import { computeXpProgress } from '@/lib/xp'
 import { ReadinessRing } from './ReadinessRing'
 import { BADGE_DEFINITIONS } from '@/lib/badges'
+import { getSubscription } from '@/lib/subscription'
+import { UpgradePrompt } from '@/components/UpgradePrompt'
 import type { CareerStage, CredentialType, CredentialStatus } from '@/lib/supabase/types'
 
 // ----------------------------------------------------------------
@@ -288,6 +290,9 @@ export default async function ProgressPage() {
   // No redirect — middleware handles unauthenticated users.
   const uid = user?.id ?? ''
 
+  // Subscription check
+  const sub = await getSubscription(uid)
+
   // Compute fresh scores — never throw; show empty state on any error
   let orScore: number | null = null
   let orPercentile: number | null = null
@@ -400,16 +405,23 @@ export default async function ProgressPage() {
       {/* XP card */}
       <XpCard xp={xp} level={level} streak={streak} />
 
-      {/* Section 3 — Specialty Score Grid */}
-      <SpecialtyGrid
-        spinalScore={spinalScore}
-        vascularScore={vascularScore}
-        cranialScore={cranialScore}
-        pediatricsScore={pediatricsScore}
-        extremityScore={extremityScore}
-        spinalTumorScore={spinalTumorScore}
-        careerStage={careerStage}
-      />
+      {/* Section 3 — Specialty Score Grid (paywalled for free users) */}
+      {sub.isFree ? (
+        <UpgradePrompt
+          feature="Specialty scores"
+          description="Upgrade to see your specialty readiness scores and national benchmarks."
+        />
+      ) : (
+        <SpecialtyGrid
+          spinalScore={spinalScore}
+          vascularScore={vascularScore}
+          cranialScore={cranialScore}
+          pediatricsScore={pediatricsScore}
+          extremityScore={extremityScore}
+          spinalTumorScore={spinalTumorScore}
+          careerStage={careerStage}
+        />
+      )}
 
       {/* Section 4 — Credentials */}
       <div>

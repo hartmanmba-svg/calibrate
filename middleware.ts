@@ -117,6 +117,10 @@ export async function middleware(request: NextRequest) {
     return redirectResponse
   }
 
+  // Expose the current pathname as a request header so server layouts
+  // can read it without re-parsing the URL from cookies or env vars.
+  supabaseResponse.headers.set('x-pathname', pathname)
+
   purgeStale(request, supabaseResponse)
   return supabaseResponse
 }

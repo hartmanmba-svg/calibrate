@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getSubscription } from '@/lib/subscription'
+import { UpgradePrompt } from '@/components/UpgradePrompt'
 import type { CeModule, CeCompletion } from '@/lib/supabase/types'
 
 export const dynamic = 'force-dynamic'
@@ -19,6 +21,25 @@ export default async function CECreditsPage() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const uid = user?.id ?? ''
+
+  // Subscription check — CE credits are paywalled
+  const sub = await getSubscription(uid)
+  if (sub.isFree) {
+    return (
+      <div className="flex flex-col gap-8 max-w-2xl">
+        <div>
+          <h1 className="font-heading text-3xl text-white">CE Credits</h1>
+          <p className="font-body text-sm text-muted mt-1">
+            Track your continuing education progress.
+          </p>
+        </div>
+        <UpgradePrompt
+          feature="CE credit tracking"
+          description="Track your continuing education credits and download certificates with a paid plan."
+        />
+      </div>
+    )
+  }
 
   // CE modules are global content — use admin client
   const admin = createAdminClient()

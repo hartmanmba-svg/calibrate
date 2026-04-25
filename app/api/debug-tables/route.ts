@@ -4,15 +4,10 @@ import { NextResponse } from 'next/server'
 export async function GET() {
   const admin = createAdminClient()
 
-  // List all tables in public schema
-  const { data: tables, error: tablesErr } = await admin
-    .from('information_schema.tables' as never)
-    .select('table_name')
-    .eq('table_schema', 'public')
-    .eq('table_type', 'BASE TABLE')
+  const { data, error } = await admin.rpc('list_public_tables' as never)
 
   return NextResponse.json({
-    tables: (tables as { table_name: string }[] | null)?.map((t) => t.table_name).sort() ?? null,
-    tables_error: tablesErr?.message ?? null,
+    tables: data ?? null,
+    error: error?.message ?? null,
   })
 }

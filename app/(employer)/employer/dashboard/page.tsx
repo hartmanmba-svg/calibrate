@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { CopyButton } from './CopyButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -124,6 +125,20 @@ export default async function EmployerDashboardPage() {
         >
           Reports
         </a>
+      </div>
+
+      {/* Invite practitioners */}
+      <div className="bg-[#2C3E50] border border-[rgba(255,255,255,0.10)] rounded-2xl p-6 space-y-3">
+        <h2 className="font-heading text-sm text-teal uppercase tracking-wide">Invite practitioners</h2>
+        <p className="font-body text-sm text-muted">
+          Share this link with your team members so they can join your organisation on Calibrate.
+        </p>
+        <div className="flex items-center gap-3 bg-[#1A252F] border border-[rgba(255,255,255,0.10)] rounded-lg px-4 py-3">
+          <span className="font-body text-sm text-white flex-1 truncate select-all">
+            {process.env.NEXT_PUBLIC_APP_URL}/join/{employer.id}
+          </span>
+          <CopyButton text={`${process.env.NEXT_PUBLIC_APP_URL}/join/${employer.id}`} />
+        </div>
       </div>
 
     </div>

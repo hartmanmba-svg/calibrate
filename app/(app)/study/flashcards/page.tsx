@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import {
   FSRS,
   generatorParameters,
@@ -51,16 +52,78 @@ function computeIntervalLabels(
   }
 }
 
+type ReviewRow = {
+  card_id: string
+  due: string
+  stability: number
+  difficulty: number
+  elapsed_days: number
+  scheduled_days: number
+  reps: number
+  lapses: number
+  state: string
+  last_review: string | null
+}
+
+type CardRow = {
+  id: string
+  front: string
+  back: string
+  explanation: string | null
+  modality: string
+  case_type: string
+  card_type: string
+}
+
+function reviewRowToFsrs(r: ReviewRow): FsrsCard {
+  return {
+    due: new Date(r.due),
+    stability: r.stability,
+    difficulty: r.difficulty,
+    elapsed_days: r.elapsed_days,
+    scheduled_days: r.scheduled_days,
+    reps: r.reps,
+    lapses: r.lapses,
+    learning_steps: 0,
+    state: STRING_TO_STATE[r.state] ?? State.New,
+    last_review: r.last_review ? new Date(r.last_review) : undefined,
+  }
+}
+
+function cardRowToSessionCard(
+  c: CardRow,
+  r: ReviewRow,
+  now: Date,
+  isNew: boolean
+): SessionCard {
+  return {
+    cardId: c.id,
+    front: c.front,
+    back: c.back,
+    explanation: c.explanation,
+    modality: c.modality,
+    caseType: c.case_type,
+    cardType: c.card_type,
+    isNew,
+    intervalLabels: computeIntervalLabels(reviewRowToFsrs(r), now),
+  }
+}
+
 // ----------------------------------------------------------------
 // Page
 // ----------------------------------------------------------------
 
-export default async function FlashcardsPage() {
+export default async function FlashcardsPage({
+  searchParams,
+}: {
+  searchParams: { deck?: string }
+}) {
   const supabase = createClient()
+  const admin = createAdminClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  // No redirect — middleware handles unauthenticated users.
   const uid = user?.id ?? ''
+  const deckId = searchParams.deck ?? null
 
   // ── Free plan gate: 20-card limit ────────────────────────────
   const sub = await getSubscription(uid)
@@ -89,75 +152,41 @@ export default async function FlashcardsPage() {
   const now = new Date()
   const SESSION_SIZE = 20
 
-  // ── 1. Due cards (card_reviews joined to cards) ───────────────
-
-  const { data: dueRows } = await supabase
+  // ── 1. Due cards ──────────────────────────────────────────────
+  // Fetch review states with user-scoped client (respects RLS)
+  const { data: dueReviewRows } = await supabase
     .from('card_reviews')
-    .select(
-      'card_id, due, stability, difficulty, elapsed_days, scheduled_days, reps, lapses, state, last_review, cards(id, front, back, explanation, modality, case_type, card_type)'
-    )
+    .select('card_id, due, stability, difficulty, elapsed_days, scheduled_days, reps, lapses, state, last_review')
     .eq('user_id', uid)
     .lte('due', now.toISOString())
     .order('due', { ascending: true })
     .limit(SESSION_SIZE)
 
-  type DueRow = {
-    card_id: string
-    due: string
-    stability: number
-    difficulty: number
-    elapsed_days: number
-    scheduled_days: number
-    reps: number
-    lapses: number
-    state: string
-    last_review: string | null
-    cards: {
-      id: string
-      front: string
-      back: string
-      explanation: string | null
-      modality: string
-      case_type: string
-      card_type: string
-    } | null
+  const dueReviewMap = new Map<string, ReviewRow>(
+    (dueReviewRows ?? []).map((r) => [r.card_id, r as ReviewRow])
+  )
+  const dueCardIds = Array.from(dueReviewMap.keys())
+
+  let dueCards: SessionCard[] = []
+  if (dueCardIds.length > 0) {
+    // Use admin client to read card content — bypasses RLS on global content table
+    let cardQuery = admin
+      .from('cards')
+      .select('id, front, back, explanation, modality, case_type, card_type')
+      .in('id', dueCardIds)
+    if (deckId) cardQuery = cardQuery.eq('deck_id', deckId)
+    const { data: dueCardData } = await cardQuery
+
+    dueCards = (dueCardData ?? []).map((c) =>
+      cardRowToSessionCard(c as CardRow, dueReviewMap.get(c.id)!, now, false)
+    )
   }
 
-  const dueCards: SessionCard[] = ((dueRows ?? []) as unknown as DueRow[])
-    .filter((r) => r.cards !== null)
-    .map((r) => {
-      const fsrsCard: FsrsCard = {
-        due: new Date(r.due),
-        stability: r.stability,
-        difficulty: r.difficulty,
-        elapsed_days: r.elapsed_days,
-        scheduled_days: r.scheduled_days,
-        reps: r.reps,
-        lapses: r.lapses,
-        learning_steps: 0,
-        state: STRING_TO_STATE[r.state] ?? State.New,
-        last_review: r.last_review ? new Date(r.last_review) : undefined,
-      }
-      return {
-        cardId: r.card_id,
-        front: r.cards!.front,
-        back: r.cards!.back,
-        explanation: r.cards!.explanation,
-        modality: r.cards!.modality,
-        caseType: r.cards!.case_type,
-        cardType: r.cards!.card_type,
-        isNew: false,
-        intervalLabels: computeIntervalLabels(fsrsCard, now),
-      }
-    })
-
   // ── 2. New cards (never reviewed) to fill out the session ─────
-
   const needed = SESSION_SIZE - dueCards.length
   let newCards: SessionCard[] = []
 
   if (needed > 0) {
-    // IDs the user has already seen
     const { data: reviewedIds } = await supabase
       .from('card_reviews')
       .select('card_id')
@@ -165,16 +194,14 @@ export default async function FlashcardsPage() {
 
     const seen = (reviewedIds ?? []).map((r) => r.card_id)
 
-    let query = supabase
+    let newQuery = admin
       .from('cards')
       .select('id, front, back, explanation, modality, case_type, card_type')
       .limit(needed)
+    if (deckId) newQuery = newQuery.eq('deck_id', deckId)
+    if (seen.length > 0) newQuery = newQuery.not('id', 'in', `(${seen.join(',')})`)
 
-    if (seen.length > 0) {
-      query = query.not('id', 'in', `(${seen.join(',')})`)
-    }
-
-    const { data: rawNew } = await query
+    const { data: rawNew } = await newQuery
     const emptyFsrs = createEmptyCard(now)
     const emptyIntervals = computeIntervalLabels(emptyFsrs, now)
 
@@ -194,45 +221,33 @@ export default async function FlashcardsPage() {
   const session: SessionCard[] = [...dueCards, ...newCards]
 
   // ── 3. Study-ahead fallback (nothing due, nothing new) ────────
-
   if (session.length === 0) {
-    const { data: upcomingRows } = await supabase
+    const { data: upcomingReviewRows } = await supabase
       .from('card_reviews')
-      .select(
-        'card_id, due, stability, difficulty, elapsed_days, scheduled_days, reps, lapses, state, last_review, cards(id, front, back, explanation, modality, case_type, card_type)'
-      )
+      .select('card_id, due, stability, difficulty, elapsed_days, scheduled_days, reps, lapses, state, last_review')
       .eq('user_id', uid)
       .gt('due', now.toISOString())
       .order('due', { ascending: true })
       .limit(SESSION_SIZE)
 
-    const upcomingDue = ((upcomingRows ?? []) as unknown as DueRow[])
-      .filter((r) => r.cards !== null)
-      .map((r) => {
-        const fsrsCard: FsrsCard = {
-          due: new Date(r.due),
-          stability: r.stability,
-          difficulty: r.difficulty,
-          elapsed_days: r.elapsed_days,
-          scheduled_days: r.scheduled_days,
-          reps: r.reps,
-          lapses: r.lapses,
-          learning_steps: 0,
-          state: STRING_TO_STATE[r.state] ?? State.New,
-          last_review: r.last_review ? new Date(r.last_review) : undefined,
-        }
-        return {
-          cardId: r.card_id,
-          front: r.cards!.front,
-          back: r.cards!.back,
-          explanation: r.cards!.explanation,
-          modality: r.cards!.modality,
-          caseType: r.cards!.case_type,
-          cardType: r.cards!.card_type,
-          isNew: false,
-          intervalLabels: computeIntervalLabels(fsrsCard, now),
-        }
-      })
+    const upcomingReviewMap = new Map<string, ReviewRow>(
+      (upcomingReviewRows ?? []).map((r) => [r.card_id, r as ReviewRow])
+    )
+    const upcomingCardIds = Array.from(upcomingReviewMap.keys())
+
+    let upcomingDue: SessionCard[] = []
+    if (upcomingCardIds.length > 0) {
+      let upcomingQuery = admin
+        .from('cards')
+        .select('id, front, back, explanation, modality, case_type, card_type')
+        .in('id', upcomingCardIds)
+      if (deckId) upcomingQuery = upcomingQuery.eq('deck_id', deckId)
+      const { data: upcomingCardData } = await upcomingQuery
+
+      upcomingDue = (upcomingCardData ?? []).map((c) =>
+        cardRowToSessionCard(c as CardRow, upcomingReviewMap.get(c.id)!, now, false)
+      )
+    }
 
     return (
       <FlashcardSession

@@ -115,7 +115,7 @@ export default async function StudyPage() {
               return (
                 <a
                   key={deck.id}
-                  href="/study/flashcards"
+                  href={`/study/flashcards?deck=${deck.id}`}
                   className="bg-navy border border-[rgba(255,255,255,0.10)] hover:border-teal/50 rounded-xl p-4 flex flex-col gap-2 transition"
                 >
                   <span className="text-2xl">{deckIcon(deck.name)}</span>

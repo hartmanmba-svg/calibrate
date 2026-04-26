@@ -310,13 +310,27 @@ export async function processReview(
 
   // ── Profile: XP + streak + consecutive_got_it ────────────────
 
-  const { data: profile } = await admin
+  // Use select('*') so missing gamification columns don't cause a parse error.
+  // Fields added by migration 20260426000000 may not exist yet — default to 0/false/null.
+  const { data: profileRaw, error: profileError } = await admin
     .from('profiles')
-    .select('xp, level, streak, streak_shield, last_review_date, consecutive_got_it')
+    .select('*')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
-  if (!profile) throw new Error('Profile not found')
+  if (!profileRaw && profileError) throw new Error(`Profile query failed: ${profileError.message}`)
+  if (!profileRaw) throw new Error('Profile not found')
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const p = profileRaw as any
+  const profile = {
+    xp:               (p.xp               ?? 0)     as number,
+    level:            (p.level             ?? 1)     as number,
+    streak:           (p.streak            ?? 0)     as number,
+    streak_shield:    (p.streak_shield     ?? false)  as boolean,
+    last_review_date: (p.last_review_date  ?? null)  as string | null,
+    consecutive_got_it: (p.consecutive_got_it ?? 0)  as number,
+  }
 
   const today = now.toISOString().slice(0, 10)
   const yesterday = new Date(now)

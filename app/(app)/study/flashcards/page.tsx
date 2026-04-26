@@ -70,9 +70,8 @@ type CardRow = {
   front: string
   back: string
   explanation: string | null
-  modality: string
-  case_type: string
-  card_type: string
+  tags: string[]
+  difficulty: number
 }
 
 function reviewRowToFsrs(r: ReviewRow): FsrsCard {
@@ -101,9 +100,8 @@ function cardRowToSessionCard(
     front: c.front,
     back: c.back,
     explanation: c.explanation,
-    modality: c.modality,
-    caseType: c.case_type,
-    cardType: c.card_type,
+    tags: c.tags ?? [],
+    difficulty: c.difficulty ?? 1,
     isNew,
     intervalLabels: computeIntervalLabels(reviewRowToFsrs(r), now),
   }
@@ -172,7 +170,7 @@ export default async function FlashcardsPage({
     // Use admin client to read card content — bypasses RLS on global content table
     let cardQuery = admin
       .from('cards')
-      .select('id, front, back, explanation, modality, case_type, card_type')
+      .select('id, front, back, explanation, tags, difficulty')
       .in('id', dueCardIds)
     if (deckId) cardQuery = cardQuery.eq('deck_id', deckId)
     const { data: dueCardData } = await cardQuery
@@ -196,7 +194,7 @@ export default async function FlashcardsPage({
 
     let newQuery = admin
       .from('cards')
-      .select('id, front, back, explanation, modality, case_type, card_type')
+      .select('id, front, back, explanation, tags, difficulty')
       .limit(needed)
     if (deckId) newQuery = newQuery.eq('deck_id', deckId)
     if (seen.length > 0) newQuery = newQuery.not('id', 'in', `(${seen.join(',')})`)
@@ -210,9 +208,8 @@ export default async function FlashcardsPage({
       front: c.front,
       back: c.back,
       explanation: c.explanation,
-      modality: c.modality,
-      caseType: c.case_type,
-      cardType: c.card_type,
+      tags: c.tags ?? [],
+      difficulty: c.difficulty ?? 1,
       isNew: true,
       intervalLabels: emptyIntervals,
     }))
@@ -239,7 +236,7 @@ export default async function FlashcardsPage({
     if (upcomingCardIds.length > 0) {
       let upcomingQuery = admin
         .from('cards')
-        .select('id, front, back, explanation, modality, case_type, card_type')
+        .select('id, front, back, explanation, tags, difficulty')
         .in('id', upcomingCardIds)
       if (deckId) upcomingQuery = upcomingQuery.eq('deck_id', deckId)
       const { data: upcomingCardData } = await upcomingQuery

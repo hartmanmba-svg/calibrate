@@ -136,9 +136,8 @@ export type Database = {
           back: string
           explanation: string | null
           deck_id: string | null
-          modality: Modality | null
-          case_type: CaseType | null
-          card_type: CardType | null
+          tags: string[]
+          difficulty: number
           created_at: string
           updated_at: string
         }
@@ -148,9 +147,8 @@ export type Database = {
           back: string
           explanation?: string | null
           deck_id?: string | null
-          modality?: Modality | null
-          case_type?: CaseType | null
-          card_type?: CardType | null
+          tags?: string[]
+          difficulty?: number
           created_at?: string
           updated_at?: string
         }
@@ -159,9 +157,8 @@ export type Database = {
           back?: string
           explanation?: string | null
           deck_id?: string | null
-          modality?: Modality | null
-          case_type?: CaseType | null
-          card_type?: CardType | null
+          tags?: string[]
+          difficulty?: number
           updated_at?: string
         }
         Relationships: []

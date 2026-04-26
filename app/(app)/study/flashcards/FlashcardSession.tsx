@@ -14,9 +14,8 @@ export type SessionCard = {
   front: string
   back: string
   explanation: string | null
-  modality: string | null
-  caseType: string | null
-  cardType: string | null
+  tags: string[]
+  difficulty: number
   isNew: boolean
   intervalLabels: { again: string; hard: string; good: string }
 }
@@ -28,12 +27,6 @@ type RatingResult = { rating: 1 | 2 | 3; xpEarned: number }
 // ----------------------------------------------------------------
 // Helpers
 // ----------------------------------------------------------------
-
-const MODALITY_LABELS: Record<string, string> = {
-  ssep: 'SSEP', mep: 'MEP', emg_free: 'Free-run EMG',
-  emg_triggered: 'Triggered EMG', eeg: 'EEG',
-  baep: 'BAEP', vep: 'VEP', dwave: 'D-wave',
-}
 
 const RATING_CONFIG = [
   {
@@ -55,16 +48,6 @@ const RATING_CONFIG = [
     classes: 'bg-green/15 border-green/40 hover:bg-green/25 text-green',
   },
 ]
-
-function formatModality(m: string | null) {
-  if (!m) return ''
-  return MODALITY_LABELS[m] ?? m.toUpperCase()
-}
-
-function formatCaseType(c: string | null) {
-  if (!c) return ''
-  return c.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
-}
 
 // ----------------------------------------------------------------
 // Empty state
@@ -253,17 +236,13 @@ export function FlashcardSession({
           transition={{ duration: 0.2 }}
           className="bg-navy rounded-2xl border border-[rgba(255,255,255,0.10)] overflow-hidden"
         >
-          {/* Card taxonomy badges */}
-          <div className="flex gap-2 px-6 pt-5 pb-0">
-            <span className="font-body text-[11px] text-teal bg-teal/10 border border-teal/20 px-2 py-0.5 rounded-full uppercase tracking-wide">
-              {formatModality(card.modality)}
-            </span>
-            <span className="font-body text-[11px] text-muted bg-dark border border-[rgba(255,255,255,0.08)] px-2 py-0.5 rounded-full">
-              {formatCaseType(card.caseType)}
-            </span>
-            <span className="font-body text-[11px] text-muted bg-dark border border-[rgba(255,255,255,0.08)] px-2 py-0.5 rounded-full capitalize">
-              {card.cardType}
-            </span>
+          {/* Tags + new badge */}
+          <div className="flex gap-2 px-6 pt-5 pb-0 flex-wrap">
+            {card.tags.map((tag) => (
+              <span key={tag} className="font-body text-[11px] text-teal bg-teal/10 border border-teal/20 px-2 py-0.5 rounded-full uppercase tracking-wide">
+                {tag}
+              </span>
+            ))}
             {card.isNew && (
               <span className="font-body text-[11px] text-orange bg-orange/10 border border-orange/20 px-2 py-0.5 rounded-full">
                 New

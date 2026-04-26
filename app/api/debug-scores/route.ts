@@ -21,12 +21,30 @@ export async function GET(req: Request) {
     ? await admin.from('cards').select('id, tags').in('id', cardIds)
     : { data: [], error: null }
 
+  // Check review_log schema by fetching one row with *
+  const { data: rlSchema, error: rlSchemaError } = await admin
+    .from('review_log')
+    .select('*')
+    .limit(1)
+
+  // Try inserting a test to see the real error
+  const { error: insertError } = await admin
+    .from('review_log')
+    .insert({
+      user_id: userId,
+      card_id: '00000000-0000-0000-0000-000000000000',
+      rating: 3,
+      fsrs_state: 'learning',
+      scheduled_days: 1,
+      elapsed_days: 0,
+      reviewed_at: new Date().toISOString(),
+    })
+
   return NextResponse.json({
     logRowCount: logRows?.length ?? 0,
     logError: logError?.message ?? null,
-    sampleLog: logRows?.slice(0, 3) ?? [],
-    uniqueCardIds: cardIds.length,
-    cardError: cardError?.message ?? null,
-    sampleCards: cardRows?.slice(0, 3) ?? [],
+    rlSchemaColumns: rlSchema ? Object.keys(rlSchema[0] ?? {}) : [],
+    rlSchemaError: rlSchemaError?.message ?? null,
+    insertError: insertError?.message ?? null,
   })
 }

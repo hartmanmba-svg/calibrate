@@ -32,7 +32,7 @@ const SPINAL_TUMOR_CASE_TYPES: CaseType[] = ['spinal_tumor']
 
 type ReviewRow = {
   rating: number
-  cards: { case_type: string } | null
+  cards: { tags: string[] } | null
 }
 
 export type ComputedScores = {
@@ -88,7 +88,7 @@ export async function computeAndCacheScores(): Promise<ComputedScores> {
   // our hand-written type file has Relationships: [] everywhere.
   const { data: raw } = await admin
     .from('review_log')
-    .select('rating, cards(case_type)')
+    .select('rating, cards(tags)')
     .eq('user_id', user.id)
     .gte('reviewed_at', windowStart.toISOString())
 
@@ -102,7 +102,7 @@ export async function computeAndCacheScores(): Promise<ComputedScores> {
   // ── Specialty scores — per case_type ─────────────────────────
   const specialtyScores: Partial<Record<CaseType, number>> = {}
   for (const caseType of CASE_TYPES) {
-    const filtered = reviews.filter((r) => r.cards?.case_type === caseType)
+    const filtered = reviews.filter((r) => r.cards?.tags?.includes(caseType))
     const score = scoreFromReviews(filtered)
     if (score !== null) {
       specialtyScores[caseType] = score
@@ -161,7 +161,7 @@ export async function computeAndCacheScores(): Promise<ComputedScores> {
       user_id: user.id,
       score_type: scoreType as ScoreType,
       score,
-      reviews_used: reviews.filter((r) => r.cards?.case_type === scoreType).length,
+      reviews_used: reviews.filter((r) => r.cards?.tags?.includes(scoreType)).length,
       computed_at: nowIso,
     })
   )
@@ -174,28 +174,28 @@ export async function computeAndCacheScores(): Promise<ComputedScores> {
 
   // ── Grouped specialty scores — derived in application memory ─
   const spinalReviews = reviews.filter(
-    (r) => r.cards !== null && SPINAL_CASE_TYPES.includes(r.cards.case_type as CaseType)
+    (r) => r.cards !== null && SPINAL_CASE_TYPES.some((ct) => r.cards!.tags.includes(ct))
   )
   const spinalScore = scoreFromReviews(spinalReviews)
 
   const vascularScore = scoreFromReviews(
-    reviews.filter((r) => r.cards !== null && VASCULAR_CASE_TYPES.includes(r.cards.case_type as CaseType))
+    reviews.filter((r) => r.cards !== null && VASCULAR_CASE_TYPES.some((ct) => r.cards!.tags.includes(ct)))
   )
 
   const cranialScore = scoreFromReviews(
-    reviews.filter((r) => r.cards !== null && CRANIAL_CASE_TYPES.includes(r.cards.case_type as CaseType))
+    reviews.filter((r) => r.cards !== null && CRANIAL_CASE_TYPES.some((ct) => r.cards!.tags.includes(ct)))
   )
 
   const pediatricsScore = scoreFromReviews(
-    reviews.filter((r) => r.cards !== null && PEDIATRICS_CASE_TYPES.includes(r.cards.case_type as CaseType))
+    reviews.filter((r) => r.cards !== null && PEDIATRICS_CASE_TYPES.some((ct) => r.cards!.tags.includes(ct)))
   )
 
   const extremityScore = scoreFromReviews(
-    reviews.filter((r) => r.cards !== null && EXTREMITY_CASE_TYPES.includes(r.cards.case_type as CaseType))
+    reviews.filter((r) => r.cards !== null && EXTREMITY_CASE_TYPES.some((ct) => r.cards!.tags.includes(ct)))
   )
 
   const spinalTumorScore = scoreFromReviews(
-    reviews.filter((r) => r.cards !== null && SPINAL_TUMOR_CASE_TYPES.includes(r.cards.case_type as CaseType))
+    reviews.filter((r) => r.cards !== null && SPINAL_TUMOR_CASE_TYPES.some((ct) => r.cards!.tags.includes(ct)))
   )
 
   return {
@@ -225,7 +225,7 @@ async function fetchRecentReviews(userId: string): Promise<ReviewRow[]> {
   const windowStart = new Date(Date.now() - WINDOW_DAYS * 24 * 60 * 60 * 1000)
   const { data: raw } = await admin
     .from('review_log')
-    .select('rating, cards(case_type)')
+    .select('rating, cards(tags)')
     .eq('user_id', userId)
     .gte('reviewed_at', windowStart.toISOString())
   return ((raw ?? []) as unknown as ReviewRow[]).filter((r) => r.cards !== null)
@@ -234,41 +234,41 @@ async function fetchRecentReviews(userId: string): Promise<ReviewRow[]> {
 export async function computeSpinalScore(userId: string): Promise<number | null> {
   const reviews = await fetchRecentReviews(userId)
   return scoreFromReviews(
-    reviews.filter((r) => r.cards !== null && SPINAL_CASE_TYPES.includes(r.cards.case_type as CaseType))
+    reviews.filter((r) => r.cards !== null && SPINAL_CASE_TYPES.some((ct) => r.cards!.tags.includes(ct)))
   )
 }
 
 export async function computeVascularScore(userId: string): Promise<number | null> {
   const reviews = await fetchRecentReviews(userId)
   return scoreFromReviews(
-    reviews.filter((r) => r.cards !== null && VASCULAR_CASE_TYPES.includes(r.cards.case_type as CaseType))
+    reviews.filter((r) => r.cards !== null && VASCULAR_CASE_TYPES.some((ct) => r.cards!.tags.includes(ct)))
   )
 }
 
 export async function computeCranialScore(userId: string): Promise<number | null> {
   const reviews = await fetchRecentReviews(userId)
   return scoreFromReviews(
-    reviews.filter((r) => r.cards !== null && CRANIAL_CASE_TYPES.includes(r.cards.case_type as CaseType))
+    reviews.filter((r) => r.cards !== null && CRANIAL_CASE_TYPES.some((ct) => r.cards!.tags.includes(ct)))
   )
 }
 
 export async function computePediatricsScore(userId: string): Promise<number | null> {
   const reviews = await fetchRecentReviews(userId)
   return scoreFromReviews(
-    reviews.filter((r) => r.cards !== null && PEDIATRICS_CASE_TYPES.includes(r.cards.case_type as CaseType))
+    reviews.filter((r) => r.cards !== null && PEDIATRICS_CASE_TYPES.some((ct) => r.cards!.tags.includes(ct)))
   )
 }
 
 export async function computeExtremityScore(userId: string): Promise<number | null> {
   const reviews = await fetchRecentReviews(userId)
   return scoreFromReviews(
-    reviews.filter((r) => r.cards !== null && EXTREMITY_CASE_TYPES.includes(r.cards.case_type as CaseType))
+    reviews.filter((r) => r.cards !== null && EXTREMITY_CASE_TYPES.some((ct) => r.cards!.tags.includes(ct)))
   )
 }
 
 export async function computeSpinalTumorScore(userId: string): Promise<number | null> {
   const reviews = await fetchRecentReviews(userId)
   return scoreFromReviews(
-    reviews.filter((r) => r.cards !== null && SPINAL_TUMOR_CASE_TYPES.includes(r.cards.case_type as CaseType))
+    reviews.filter((r) => r.cards !== null && SPINAL_TUMOR_CASE_TYPES.some((ct) => r.cards!.tags.includes(ct)))
   )
 }

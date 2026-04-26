@@ -2,15 +2,6 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 
-type CardInsert = {
-  id: string
-  front: string
-  back: string
-  explanation: string | null
-  tags: string[]
-  difficulty: number
-}
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const SEED_CARDS: any[] = [
   // ── Group 1: Surgical Monitoring Basics (01–15) ─────────────────────────

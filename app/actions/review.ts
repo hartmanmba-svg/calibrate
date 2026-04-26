@@ -302,7 +302,6 @@ export async function processReview(
     user_id: user.id,
     card_id: cardId,
     rating: calibrateRating,
-    fsrs_state: nextState,
     scheduled_days: next.scheduled_days,
     elapsed_days: log.elapsed_days,
     reviewed_at: now.toISOString(),

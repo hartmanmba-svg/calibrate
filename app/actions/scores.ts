@@ -83,18 +83,27 @@ export async function computeAndCacheScores(): Promise<ComputedScores> {
   const now = new Date()
   const windowStart = new Date(now.getTime() - WINDOW_DAYS * 24 * 60 * 60 * 1000)
 
-  // Fetch last 30 days of reviews joined to cards for case_type.
-  // card_reviews → cards FK exists in the DB; cast result because
-  // our hand-written type file has Relationships: [] everywhere.
-  const { data: raw } = await admin
+  // Fetch last 30 days of reviews, then card tags separately to avoid
+  // PostgREST join issues with hand-written type file (Relationships: []).
+  const { data: logRows } = await admin
     .from('review_log')
-    .select('rating, cards(tags)')
+    .select('rating, card_id')
     .eq('user_id', user.id)
     .gte('reviewed_at', windowStart.toISOString())
 
-  const reviews = ((raw ?? []) as unknown as ReviewRow[]).filter(
-    (r) => r.cards !== null
+  const cardIds = Array.from(new Set((logRows ?? []).map((r) => r.card_id).filter(Boolean)))
+
+  const { data: cardRows } = cardIds.length > 0
+    ? await admin.from('cards').select('id, tags').in('id', cardIds)
+    : { data: [] }
+
+  const cardTagMap = new Map<string, string[]>(
+    (cardRows ?? []).map((c) => [c.id, c.tags ?? []])
   )
+
+  const reviews: ReviewRow[] = (logRows ?? [])
+    .filter((r) => r.card_id && cardTagMap.has(r.card_id))
+    .map((r) => ({ rating: r.rating, cards: { tags: cardTagMap.get(r.card_id!)! } }))
 
   // ── OR Readiness — all modalities combined ────────────────────
   const orScore = scoreFromReviews(reviews)
@@ -223,12 +232,24 @@ export async function computeAndCacheScores(): Promise<ComputedScores> {
 async function fetchRecentReviews(userId: string): Promise<ReviewRow[]> {
   const admin = createAdminClient()
   const windowStart = new Date(Date.now() - WINDOW_DAYS * 24 * 60 * 60 * 1000)
-  const { data: raw } = await admin
+  const { data: logRows } = await admin
     .from('review_log')
-    .select('rating, cards(tags)')
+    .select('rating, card_id')
     .eq('user_id', userId)
     .gte('reviewed_at', windowStart.toISOString())
-  return ((raw ?? []) as unknown as ReviewRow[]).filter((r) => r.cards !== null)
+
+  const cardIds = Array.from(new Set((logRows ?? []).map((r) => r.card_id).filter(Boolean)))
+  const { data: cardRows } = cardIds.length > 0
+    ? await admin.from('cards').select('id, tags').in('id', cardIds)
+    : { data: [] }
+
+  const cardTagMap = new Map<string, string[]>(
+    (cardRows ?? []).map((c) => [c.id, c.tags ?? []])
+  )
+
+  return (logRows ?? [])
+    .filter((r) => r.card_id && cardTagMap.has(r.card_id))
+    .map((r) => ({ rating: r.rating, cards: { tags: cardTagMap.get(r.card_id!)! } }))
 }
 
 export async function computeSpinalScore(userId: string): Promise<number | null> {

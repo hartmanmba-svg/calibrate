@@ -299,7 +299,7 @@ export async function processReview(
 
   // Append to review_log (insert-only table)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: rlError } = await (admin.from('review_log') as any).insert({
+  await (admin.from('review_log') as any).insert({
     user_id: user.id,
     card_id: cardId,
     rating: calibrateRating,
@@ -307,7 +307,6 @@ export async function processReview(
     elapsed_days: log.elapsed_days,
     reviewed_at: now.toISOString(),
   })
-  if (rlError) throw new Error(`review_log insert failed: ${rlError.message}`)
 
   // ── Profile: XP + streak + consecutive_got_it ────────────────
 

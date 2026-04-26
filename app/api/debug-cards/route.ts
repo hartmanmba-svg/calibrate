@@ -1,32 +1,27 @@
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
-  const supabase = createClient()
   const admin = createAdminClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  const uid = user?.id ?? null
 
-  // Check profile with all fields the review action needs
-  const { data: profile, error: profileError } = uid
-    ? await admin.from('profiles').select('xp, level, streak, streak_shield, last_review_date, consecutive_got_it').eq('id', uid).maybeSingle()
-    : { data: null, error: { message: 'not authed' } }
+  // Get one profile row to see actual schema
+  const { data: profileSample, error: profileError } = await admin
+    .from('profiles').select('*').limit(1)
 
-  // Check review_log exists
-  const { count: rlCount, error: rlError } = await admin
-    .from('review_log').select('*', { count: 'exact', head: true })
+  // Try selecting exactly what processReview needs
+  const { data: profileFields, error: profileFieldsError } = await admin
+    .from('profiles').select('xp, level, streak, streak_shield, last_review_date, consecutive_got_it').limit(1)
 
-  // Check card_reviews schema
-  const { data: crSample, error: crError } = await admin
-    .from('card_reviews').select('*').limit(1)
+  // Check review_log schema
+  const { data: rlSample, error: rlError } = await admin
+    .from('review_log').select('*').limit(1)
 
   return NextResponse.json({
-    uid,
-    profile,
+    profileSample,
     profileError: profileError?.message ?? null,
-    reviewLog: { count: rlCount, error: rlError?.message ?? null },
-    cardReviewSample: crSample,
-    cardReviewError: crError?.message ?? null,
+    profileFields,
+    profileFieldsError: profileFieldsError?.message ?? null,
+    rlSample,
+    rlError: rlError?.message ?? null,
   })
 }

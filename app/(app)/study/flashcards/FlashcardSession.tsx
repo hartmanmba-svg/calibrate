@@ -1,9 +1,14 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { processReview } from '@/app/actions/review'
+import {
+  enqueueReview,
+  getAllQueuedReviews,
+  clearQueuedReview,
+} from '@/lib/idb'
 
 // ----------------------------------------------------------------
 // Types
@@ -25,7 +30,7 @@ type XpToast = { id: number; xp: number; leveledUp: boolean }
 type RatingResult = { rating: 1 | 2 | 3; xpEarned: number }
 
 // ----------------------------------------------------------------
-// Helpers
+// Constants
 // ----------------------------------------------------------------
 
 const RATING_CONFIG = [
@@ -48,6 +53,8 @@ const RATING_CONFIG = [
     classes: 'bg-green/15 border-green/40 hover:bg-green/25 text-green',
   },
 ]
+
+const XP_OPTIMISTIC: Record<1 | 2 | 3, number> = { 1: 5, 2: 10, 3: 15 }
 
 // ----------------------------------------------------------------
 // Empty state
@@ -78,9 +85,11 @@ function EmptyState() {
 function CompletionScreen({
   results,
   totalXp,
+  hadOfflineReviews,
 }: {
   results: RatingResult[]
   totalXp: number
+  hadOfflineReviews: boolean
 }) {
   const counts = { 1: 0, 2: 0, 3: 0 }
   results.forEach((r) => counts[r.rating]++)
@@ -98,6 +107,14 @@ function CompletionScreen({
           {results.length} card{results.length !== 1 ? 's' : ''} reviewed
         </p>
       </div>
+
+      {hadOfflineReviews && (
+        <div className="bg-gold/10 border border-gold/30 rounded-xl px-4 py-3 w-full text-left">
+          <p className="font-body text-xs text-gold">
+            Some reviews were saved offline and will sync when you reconnect.
+          </p>
+        </div>
+      )}
 
       {/* XP earned */}
       <div className="bg-navy border border-[rgba(255,255,255,0.10)] rounded-2xl px-8 py-5 w-full">
@@ -157,9 +174,85 @@ export function FlashcardSession({
   const [totalXp, setTotalXp] = useState(0)
   const [done, setDone] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const [isOffline, setIsOffline] = useState(false)
+  const [hadOfflineReviews, setHadOfflineReviews] = useState(false)
+
+  // ── Offline queue drain ──────────────────────────────────────
+  const drainOfflineQueue = useCallback(async () => {
+    try {
+      const queued = await getAllQueuedReviews()
+      if (queued.length === 0) return
+      for (const review of queued) {
+        if (!navigator.onLine) break
+        try {
+          await processReview(review.card_id, review.rating, review.nonce)
+          await clearQueuedReview(review.id!)
+        } catch {
+          break
+        }
+      }
+    } catch {
+      // IDB unavailable (e.g. private browsing) — silently skip
+    }
+  }, [])
+
+  // ── Online/offline listeners ─────────────────────────────────
+  useEffect(() => {
+    setIsOffline(!navigator.onLine)
+
+    const handleOnline = () => {
+      setIsOffline(false)
+      void drainOfflineQueue()
+    }
+    const handleOffline = () => setIsOffline(true)
+
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+
+    // Drain any reviews queued from a previous offline session
+    if (navigator.onLine) void drainOfflineQueue()
+
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [drainOfflineQueue])
+
+  // ── Helpers ──────────────────────────────────────────────────
+  function showToast(xp: number, leveledUp: boolean) {
+    const toastId = Date.now()
+    setToasts((prev) => [...prev, { id: toastId, xp, leveledUp }])
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== toastId)), 2000)
+  }
+
+  function advance() {
+    if (index + 1 >= cards.length) {
+      setDone(true)
+    } else {
+      setIndex(index + 1)
+      setPhase('question')
+    }
+  }
+
+  function recordOfflineRate(rating: 1 | 2 | 3, nonce: string, cardId: string) {
+    setHadOfflineReviews(true)
+    void enqueueReview({
+      card_id: cardId,
+      rating,
+      reviewed_at: new Date().toISOString(),
+      nonce,
+    }).catch(() => {
+      // IDB unavailable — review is lost but UI still advances
+    })
+    const xp = XP_OPTIMISTIC[rating]
+    showToast(xp, false)
+    setResults((prev) => [...prev, { rating, xpEarned: xp }])
+    setTotalXp((prev) => prev + xp)
+    advance()
+  }
 
   if (cards.length === 0) return <EmptyState />
-  if (done) return <CompletionScreen results={results} totalXp={totalXp} />
+  if (done) return <CompletionScreen results={results} totalXp={totalXp} hadOfflineReviews={hadOfflineReviews} />
 
   const card = cards[index]
   const progress = Math.round((index / cards.length) * 100)
@@ -171,34 +264,52 @@ export function FlashcardSession({
   function handleRate(rating: 1 | 2 | 3) {
     if (isPending) return
 
+    const nonce = crypto.randomUUID()
+
+    // Offline path: skip the network call, queue for later sync
+    if (!navigator.onLine) {
+      recordOfflineRate(rating, nonce, card.cardId)
+      return
+    }
+
     startTransition(async () => {
-      const result = await processReview(card.cardId, rating)
-
-      // Show XP toast
-      const toastId = Date.now()
-      setToasts((prev) => [
-        ...prev,
-        { id: toastId, xp: result.xpEarned, leveledUp: result.newLevel > result.oldLevel },
-      ])
-      setTimeout(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== toastId))
-      }, 2000)
-
-      setResults((prev) => [...prev, { rating, xpEarned: result.xpEarned }])
-      setTotalXp((prev) => prev + result.xpEarned)
-
-      // Advance
-      if (index + 1 >= cards.length) {
-        setDone(true)
-      } else {
-        setIndex(index + 1)
-        setPhase('question')
+      try {
+        const result = await processReview(card.cardId, rating, nonce)
+        showToast(result.xpEarned, result.newLevel > result.oldLevel)
+        setResults((prev) => [...prev, { rating, xpEarned: result.xpEarned }])
+        setTotalXp((prev) => prev + result.xpEarned)
+        advance()
+      } catch {
+        // Network dropped mid-request: queue and advance
+        if (!navigator.onLine) {
+          recordOfflineRate(rating, nonce, card.cardId)
+        } else {
+          // Non-network server error: advance without XP to avoid blocking the session
+          advance()
+        }
       }
     })
   }
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl mx-auto">
+
+      {/* ── Offline banner ── */}
+      <AnimatePresence>
+        {isOffline && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="bg-gold/10 border border-gold/30 rounded-xl px-4 py-2.5 flex items-center gap-2"
+          >
+            <span className="text-gold text-sm">📶</span>
+            <p className="font-body text-xs text-gold">
+              Offline — reviews are saving locally and will sync when you reconnect.
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Header: progress + metadata ── */}
       <div className="flex items-center justify-between">

@@ -3,6 +3,35 @@ const CACHE_NAME = 'calibrate-v1'
 
 const PRECACHE_URLS = ['/study/flashcards', '/offline']
 
+// ── Push notifications ───────────────────────────────────────────
+self.addEventListener('push', (event) => {
+  let data = { title: 'Calibrate', body: 'Time to study!', url: '/study/flashcards' }
+  try {
+    if (event.data) Object.assign(data, JSON.parse(event.data.text()))
+  } catch { /* malformed payload — use defaults */ }
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      data: { url: data.url },
+    })
+  )
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const url = event.notification.data?.url ?? '/dashboard'
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      const existing = clients.find((c) => c.url.includes(self.location.origin))
+      if (existing) return existing.focus().then((c) => c.navigate(url))
+      return self.clients.openWindow(url)
+    })
+  )
+})
+
 // ── Install: pre-cache known pages ──────────────────────────────
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -34,8 +63,11 @@ self.addEventListener('fetch', (event) => {
   const { request } = event
   const url = new URL(request.url)
 
-  // Only handle same-origin requests
+  // Only handle same-origin GET requests — POSTs (server actions, forms) must
+  // always hit the network directly; caching their responses makes no sense and
+  // serving the offline page for a failed POST breaks the client action handler.
   if (url.origin !== self.location.origin) return
+  if (request.method !== 'GET') return
 
   // API calls — network only (never cache)
   if (url.pathname.startsWith('/api/')) {

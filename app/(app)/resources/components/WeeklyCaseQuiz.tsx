@@ -1,11 +1,29 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { submitWeeklyCaseAnswer } from '@/app/actions/weekly-case'
 import type { WeeklyCase } from '@/lib/weekly-case'
 
-export function WeeklyCaseQuiz({ weeklyCase }: { weeklyCase: WeeklyCase }) {
-  const [selected, setSelected] = useState<number | null>(null)
-  const [submitted, setSubmitted] = useState(false)
+export type PriorAnswer = {
+  selectedIndex: number
+  isCorrect: boolean
+  xpEarned: number
+}
+
+type XpToast = { xp: number; leveledUp: boolean }
+
+export function WeeklyCaseQuiz({
+  weeklyCase,
+  priorAnswer,
+}: {
+  weeklyCase: WeeklyCase
+  priorAnswer?: PriorAnswer
+}) {
+  const [selected, setSelected]     = useState<number | null>(priorAnswer?.selectedIndex ?? null)
+  const [submitted, setSubmitted]   = useState(!!priorAnswer)
+  const [toast, setToast]           = useState<XpToast | null>(null)
+  const [isPending, startTransition] = useTransition()
 
   const isCorrect = selected === weeklyCase.correctIndex
 
@@ -15,8 +33,20 @@ export function WeeklyCaseQuiz({ weeklyCase }: { weeklyCase: WeeklyCase }) {
   }
 
   function handleSubmit() {
-    if (selected === null) return
-    setSubmitted(true)
+    if (selected === null || submitted || isPending) return
+
+    startTransition(async () => {
+      const result = await submitWeeklyCaseAnswer(
+        weeklyCase.id,
+        selected,
+        selected === weeklyCase.correctIndex
+      )
+      setSubmitted(true)
+      if (!result.alreadyAnswered && result.xpEarned > 0) {
+        setToast({ xp: result.xpEarned, leveledUp: result.newLevel > result.oldLevel })
+        setTimeout(() => setToast(null), 3000)
+      }
+    })
   }
 
   function optionStyle(idx: number): string {
@@ -26,7 +56,7 @@ export function WeeklyCaseQuiz({ weeklyCase }: { weeklyCase: WeeklyCase }) {
         : 'border-[rgba(255,255,255,0.10)] bg-navy text-white hover:border-teal/50 hover:bg-teal/5'
     }
     if (idx === weeklyCase.correctIndex) return 'border-green bg-green/10 text-green'
-    if (idx === selected) return 'border-red bg-red/10 text-red'
+    if (idx === selected && idx !== weeklyCase.correctIndex) return 'border-red bg-red/10 text-red'
     return 'border-[rgba(255,255,255,0.06)] bg-navy/50 text-muted'
   }
 
@@ -50,9 +80,9 @@ export function WeeklyCaseQuiz({ weeklyCase }: { weeklyCase: WeeklyCase }) {
             key={idx}
             onClick={() => handleSelect(idx)}
             disabled={submitted}
-            className={`w-full text-left rounded-xl border px-4 py-3 font-body text-sm transition cursor-pointer
+            className={`w-full text-left rounded-xl border px-4 py-3 font-body text-sm transition
               ${optionStyle(idx)}
-              ${submitted ? 'cursor-default' : ''}`}
+              ${submitted ? 'cursor-default' : 'cursor-pointer'}`}
           >
             <span className="font-heading text-xs mr-2 opacity-60">
               {String.fromCharCode(65 + idx)}.
@@ -62,18 +92,18 @@ export function WeeklyCaseQuiz({ weeklyCase }: { weeklyCase: WeeklyCase }) {
         ))}
       </div>
 
-      {/* Submit button */}
+      {/* Submit */}
       {!submitted && (
         <button
           onClick={handleSubmit}
-          disabled={selected === null}
+          disabled={selected === null || isPending}
           className={`self-start font-heading text-sm px-6 py-2.5 rounded-xl transition
-            ${selected !== null
+            ${selected !== null && !isPending
               ? 'bg-orange text-white hover:bg-orange/90 cursor-pointer'
               : 'bg-[rgba(255,255,255,0.08)] text-muted cursor-not-allowed'
             }`}
         >
-          Submit answer
+          {isPending ? 'Submitting…' : 'Submit answer'}
         </button>
       )}
 
@@ -88,11 +118,31 @@ export function WeeklyCaseQuiz({ weeklyCase }: { weeklyCase: WeeklyCase }) {
             <p className={`font-heading text-base ${isCorrect ? 'text-green' : 'text-red'}`}>
               {isCorrect ? 'Correct!' : 'Incorrect'}
             </p>
+            {priorAnswer && (
+              <span className="ml-auto font-body text-xs text-muted">answered previously</span>
+            )}
           </div>
           <p className="font-body text-xs text-teal uppercase tracking-widest">Explanation</p>
           <p className="font-body text-sm text-white leading-relaxed">{weeklyCase.explanation}</p>
         </div>
       )}
+
+      {/* XP toast */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 8, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.95 }}
+            className="self-start bg-navy border border-orange/30 rounded-xl px-4 py-2.5"
+          >
+            <p className="font-heading text-orange text-sm">+{toast.xp} XP</p>
+            {toast.leveledUp && (
+              <p className="font-body text-xs text-gold mt-0.5">Level up! 🎉</p>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

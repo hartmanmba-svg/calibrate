@@ -1,5 +1,8 @@
-import { CURRENT_WEEKLY_CASE } from '@/lib/weekly-case'
+import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { getCurrentWeeklyCase } from '@/lib/weekly-case'
 import { WeeklyCaseQuiz } from './components/WeeklyCaseQuiz'
+import type { PriorAnswer } from './components/WeeklyCaseQuiz'
 
 // ----------------------------------------------------------------
 // Resource card config
@@ -37,7 +40,36 @@ const RESOURCE_CARDS: ResourceCard[] = [
 // Page
 // ----------------------------------------------------------------
 
-export default function ResourcesPage() {
+export default async function ResourcesPage() {
+  const weeklyCase = getCurrentWeeklyCase()
+
+  // Check if the current user has already answered this week's case
+  let priorAnswer: PriorAnswer | undefined
+  try {
+    const supabase = createClient()
+    const admin = createAdminClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (user) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (admin.from('weekly_case_answers') as any)
+        .select('selected_index, is_correct, xp_earned')
+        .eq('user_id', user.id)
+        .eq('case_id', weeklyCase.id)
+        .maybeSingle()
+
+      if (data) {
+        priorAnswer = {
+          selectedIndex: data.selected_index,
+          isCorrect: data.is_correct,
+          xpEarned: data.xp_earned,
+        }
+      }
+    }
+  } catch {
+    // Non-fatal: missing table or auth error — show unanswered state
+  }
+
   return (
     <div className="flex flex-col gap-10 max-w-3xl mx-auto">
 
@@ -54,19 +86,19 @@ export default function ResourcesPage() {
         <div className="flex items-center gap-3 mb-5">
           <p className="font-body text-xs text-muted uppercase tracking-widest">Weekly case drop</p>
           <span className="font-heading text-[10px] px-2 py-0.5 rounded-full bg-orange/20 text-orange border border-orange/30">
-            Week {CURRENT_WEEKLY_CASE.week}
+            {weeklyCase.week}
           </span>
         </div>
 
         <div className="bg-navy border border-[rgba(255,255,255,0.10)] rounded-2xl p-6 flex flex-col gap-5">
           {/* Case header */}
           <div className="flex flex-col gap-1">
-            <p className="font-heading text-xl text-white">{CURRENT_WEEKLY_CASE.title}</p>
-            <p className="font-body text-xs text-teal">{CURRENT_WEEKLY_CASE.specialty}</p>
+            <p className="font-heading text-xl text-white">{weeklyCase.title}</p>
+            <p className="font-body text-xs text-teal">{weeklyCase.specialty}</p>
           </div>
 
           {/* Interactive quiz */}
-          <WeeklyCaseQuiz weeklyCase={CURRENT_WEEKLY_CASE} />
+          <WeeklyCaseQuiz weeklyCase={weeklyCase} priorAnswer={priorAnswer} />
         </div>
       </section>
 

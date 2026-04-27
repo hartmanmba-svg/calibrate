@@ -235,7 +235,8 @@ async function checkDailyMissions(
 
 export async function processReview(
   cardId: string,
-  calibrateRating: 1 | 2 | 3
+  calibrateRating: 1 | 2 | 3,
+  nonce?: string
 ): Promise<ProcessReviewResult> {
   const supabase = createClient()
   const admin = createAdminClient()
@@ -244,6 +245,30 @@ export async function processReview(
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
+
+  // Idempotency guard: if the client sends a nonce we've already processed,
+  // return early so offline queue retries don't double-award XP.
+  if (nonce) {
+    const { count: already } = await admin
+      .from('review_log')
+      .select('id', { count: 'exact', head: true })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .eq('client_nonce' as any, nonce)
+    if (already && already > 0) {
+      // Return a safe no-op result — client just advances the card.
+      return {
+        xpEarned: 0,
+        newLevel: 1,
+        oldLevel: 1,
+        newStreak: 0,
+        scheduledDays: 0,
+        dueAt: new Date().toISOString(),
+        earnedBadges: [],
+        completedMissions: [],
+        credentialsUpdated: false,
+      }
+    }
+  }
 
   const f = new FSRS(generatorParameters())
   const now = new Date()
@@ -306,6 +331,7 @@ export async function processReview(
     scheduled_days: next.scheduled_days,
     elapsed_days: log.elapsed_days,
     reviewed_at: now.toISOString(),
+    ...(nonce ? { client_nonce: nonce } : {}),
   })
 
   // ── Profile: XP + streak + consecutive_got_it ────────────────

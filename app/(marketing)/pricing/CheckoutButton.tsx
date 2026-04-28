@@ -14,9 +14,11 @@ export function CheckoutButton({
   className: string
 }) {
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function handleClick() {
     setLoading(true)
+    setError(null)
     try {
       const res = await fetch('/api/checkout', {
         method: 'POST',
@@ -29,24 +31,33 @@ export function CheckoutButton({
         return
       }
 
+      const data = await res.json() as { url?: string; error?: string }
+
       if (!res.ok) {
-        throw new Error('Failed to create checkout session')
+        setError(data.error ?? 'Failed to create checkout session')
+        setLoading(false)
+        return
       }
 
-      const { url } = await res.json() as { url: string }
-      window.location.href = url
+      window.location.href = data.url!
     } catch {
+      setError('Something went wrong — please try again.')
       setLoading(false)
     }
   }
 
   return (
-    <button
-      onClick={handleClick}
-      disabled={loading}
-      className={`${className} disabled:opacity-60 disabled:cursor-not-allowed`}
-    >
-      {loading ? 'Loading…' : label}
-    </button>
+    <div className="flex flex-col items-center gap-2">
+      <button
+        onClick={handleClick}
+        disabled={loading}
+        className={`${className} disabled:opacity-60 disabled:cursor-not-allowed`}
+      >
+        {loading ? 'Loading…' : label}
+      </button>
+      {error && (
+        <p className="text-red-400 text-xs text-center">{error}</p>
+      )}
+    </div>
   )
 }

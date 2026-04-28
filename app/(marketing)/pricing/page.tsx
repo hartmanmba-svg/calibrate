@@ -96,7 +96,7 @@ export default async function PricingPage() {
       </div>
 
       {/* Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-3xl">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-5xl">
 
         {/* Free */}
         <div className="bg-navy border border-[rgba(255,255,255,0.10)] rounded-2xl p-6 flex flex-col">
@@ -163,13 +163,11 @@ export default async function PricingPage() {
 
         {/* Annual — highlighted */}
         <div className="bg-navy border-2 border-orange rounded-2xl p-6 flex flex-col relative">
-          {/* Badge */}
           <div className="absolute -top-3 left-1/2 -translate-x-1/2">
             <span className="font-heading text-xs bg-orange text-white px-3 py-1 rounded-full whitespace-nowrap">
               Most popular
             </span>
           </div>
-
           <div>
             <div className="flex items-center gap-2 mb-3">
               <p className="font-body text-xs text-muted uppercase tracking-widest">Annual</p>
@@ -204,28 +202,18 @@ export default async function PricingPage() {
           </div>
         </div>
 
-      </div>
-
-      {/* Teams */}
-      <div className="w-full max-w-3xl">
-        <div className="bg-navy border border-[rgba(255,255,255,0.10)] rounded-2xl p-6 md:p-8 flex flex-col md:flex-row md:items-center gap-8">
-          <div className="flex-1">
+        {/* Teams */}
+        <div className="bg-navy border border-[rgba(255,255,255,0.10)] rounded-2xl p-6 flex flex-col">
+          <div>
             <p className="font-body text-xs text-muted uppercase tracking-widest mb-3">Teams</p>
-            <div className="flex items-end gap-1 mb-1">
+            <div className="flex items-end gap-1">
               <span className="font-heading text-4xl text-white">$9.99</span>
               <span className="font-body text-muted text-sm mb-1">/seat/mo</span>
             </div>
-            <p className="font-body text-xs text-muted">Billed monthly per practitioner</p>
-            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-6">
-              {TEAM_FEATURES.map((f) => (
-                <li key={f} className="flex items-start gap-2">
-                  <CheckIcon />
-                  <span className="font-body text-sm text-muted">{f}</span>
-                </li>
-              ))}
-            </ul>
+            <p className="font-body text-xs text-muted mt-1">Billed monthly per seat</p>
           </div>
-          <div className="md:w-48 flex flex-col gap-3">
+          <FeatureList features={TEAM_FEATURES} />
+          <div className="mt-auto pt-6">
             {currentPlan === 'team' ? (
               <div className="w-full text-center font-heading py-3 rounded-xl
                 bg-teal/10 border border-teal/30 text-teal text-sm">
@@ -236,14 +224,13 @@ export default async function PricingPage() {
                 plan="team"
                 label="Get started"
                 className="w-full font-heading py-3 rounded-xl text-sm
-                  bg-orange hover:bg-orange/90 text-white transition"
+                  bg-dark border border-[rgba(255,255,255,0.10)] text-white
+                  hover:border-white/20 transition"
               />
             )}
-            <p className="font-body text-[11px] text-muted text-center">
-              Minimum 2 seats. Cancel anytime.
-            </p>
           </div>
         </div>
+
       </div>
 
       {/* Footer note */}

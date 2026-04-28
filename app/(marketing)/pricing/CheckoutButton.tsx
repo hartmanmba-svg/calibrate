@@ -31,17 +31,24 @@ export function CheckoutButton({
         return
       }
 
-      const data = await res.json() as { url?: string; error?: string }
+      let data: { url?: string; error?: string } = {}
+      try {
+        data = await res.json()
+      } catch {
+        setError(`Server error ${res.status} — check Vercel logs`)
+        setLoading(false)
+        return
+      }
 
       if (!res.ok) {
-        setError(data.error ?? 'Failed to create checkout session')
+        setError(data.error ?? `Error ${res.status}`)
         setLoading(false)
         return
       }
 
       window.location.href = data.url!
-    } catch {
-      setError('Something went wrong — please try again.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Network error — please try again.')
       setLoading(false)
     }
   }

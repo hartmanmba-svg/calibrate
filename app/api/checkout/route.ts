@@ -3,12 +3,13 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { stripe } from '@/lib/stripe'
 
-type Plan = 'monthly' | 'annual' | 'team'
+type Plan = 'monthly' | 'annual' | 'team_monthly' | 'team_annual'
 
 const PRICE_IDS: Record<Plan, string | undefined> = {
   monthly: process.env.STRIPE_PRICE_MONTHLY,
   annual: process.env.STRIPE_PRICE_ANNUAL,
-  team: process.env.STRIPE_PRICE_TEAM,
+  team_monthly: process.env.STRIPE_PRICE_TEAM_MONTHLY,
+  team_annual: process.env.STRIPE_PRICE_TEAM_ANNUAL,
 }
 
 export async function POST(request: NextRequest) {
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json() as { plan?: string }
   const plan = body.plan as Plan | undefined
 
-  if (!plan || !['monthly', 'annual', 'team'].includes(plan)) {
+  if (!plan || !['monthly', 'annual', 'team_monthly', 'team_annual'].includes(plan)) {
     return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
   }
 
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: {
-        trial_period_days: plan === 'annual' ? 7 : undefined,
+        trial_period_days: plan === 'annual' || plan === 'team_annual' ? 7 : undefined,
         metadata: { user_id: user.id, plan },
       },
       allow_promotion_codes: true,

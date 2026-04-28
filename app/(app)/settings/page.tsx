@@ -23,6 +23,8 @@ export default async function SettingsPage() {
     monthly: 'Monthly',
     annual: 'Annual',
     team: 'Team',
+    team_monthly: 'Teams · Monthly',
+    team_annual: 'Teams · Annual',
   }
 
   const STATUS_STYLES: Record<SubscriptionStatus, { label: string; classes: string }> = {

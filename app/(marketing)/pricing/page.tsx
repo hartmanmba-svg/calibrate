@@ -7,11 +7,12 @@ import Link from 'next/link'
 // ----------------------------------------------------------------
 
 const TEAM_FEATURES = [
-  'Everything in the individual plan',
+  'Everything in the individual Annual plan',
   'Centralized employer dashboard',
   'Team readiness scores & benchmarks',
   'Staff progress tracking across all modalities',
   'Bulk seat management & invitations',
+  'Volume discount from seat 6 onwards',
   'Priority support',
 ]
 
@@ -95,8 +96,8 @@ export default async function PricingPage() {
         </p>
       </div>
 
-      {/* Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-5xl">
+      {/* Individual plan cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-3xl">
 
         {/* Free */}
         <div className="bg-navy border border-[rgba(255,255,255,0.10)] rounded-2xl p-6 flex flex-col">
@@ -202,35 +203,84 @@ export default async function PricingPage() {
           </div>
         </div>
 
-        {/* Teams */}
-        <div className="bg-navy border border-[rgba(255,255,255,0.10)] rounded-2xl p-6 flex flex-col">
-          <div>
-            <p className="font-body text-xs text-muted uppercase tracking-widest mb-3">Teams</p>
-            <div className="flex items-end gap-1">
-              <span className="font-heading text-4xl text-white">$9.99</span>
-              <span className="font-body text-muted text-sm mb-1">/seat/mo</span>
-            </div>
-            <p className="font-body text-xs text-muted mt-1">Billed monthly per seat</p>
-          </div>
-          <FeatureList features={TEAM_FEATURES} />
-          <div className="mt-auto pt-6">
-            {currentPlan === 'team' ? (
-              <div className="w-full text-center font-heading py-3 rounded-xl
-                bg-teal/10 border border-teal/30 text-teal text-sm">
-                Current plan
-              </div>
-            ) : (
-              <CheckoutButton
-                plan="team"
-                label="Get started"
-                className="w-full font-heading py-3 rounded-xl text-sm
-                  bg-dark border border-[rgba(255,255,255,0.10)] text-white
-                  hover:border-white/20 transition"
-              />
-            )}
-          </div>
+      </div>
+
+      {/* Teams section */}
+      <div className="w-full max-w-3xl flex flex-col gap-4">
+        <div className="text-center">
+          <h2 className="font-heading text-2xl text-white">For teams</h2>
+          <p className="font-body text-sm text-muted mt-1">
+            Volume discount automatically applied from seat 6 onwards.
+          </p>
         </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          {/* Teams Monthly */}
+          <div className="bg-navy border border-[rgba(255,255,255,0.10)] rounded-2xl p-6 flex flex-col">
+            <div>
+              <p className="font-body text-xs text-muted uppercase tracking-widest mb-3">Teams · Monthly</p>
+              <div className="flex items-end gap-1">
+                <span className="font-heading text-4xl text-white">$9.99</span>
+                <span className="font-body text-muted text-sm mb-1">/seat/mo</span>
+              </div>
+              <p className="font-body text-xs text-muted mt-1">Billed monthly per seat</p>
+            </div>
+            <FeatureList features={TEAM_FEATURES} />
+            <div className="mt-auto pt-6">
+              {currentPlan === 'team_monthly' ? (
+                <div className="w-full text-center font-heading py-3 rounded-xl
+                  bg-teal/10 border border-teal/30 text-teal text-sm">
+                  Current plan
+                </div>
+              ) : (
+                <CheckoutButton
+                  plan="team_monthly"
+                  label="Get started"
+                  className="w-full font-heading py-3 rounded-xl text-sm
+                    bg-dark border border-[rgba(255,255,255,0.10)] text-white
+                    hover:border-white/20 transition"
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Teams Annual */}
+          <div className="bg-navy border border-[rgba(255,255,255,0.10)] rounded-2xl p-6 flex flex-col">
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <p className="font-body text-xs text-muted uppercase tracking-widest">Teams · Annual</p>
+                <span className="font-body text-[10px] text-gold bg-gold/10 border border-gold/30
+                  px-2 py-0.5 rounded-full">
+                  Save 17%
+                </span>
+              </div>
+              <div className="flex items-end gap-1">
+                <span className="font-heading text-4xl text-white">$99.99</span>
+                <span className="font-body text-muted text-sm mb-1">/seat/yr</span>
+              </div>
+              <p className="font-body text-xs text-muted mt-1">$8.33/seat/mo — billed annually</p>
+            </div>
+            <FeatureList features={TEAM_FEATURES} />
+            <div className="mt-auto pt-6">
+              {currentPlan === 'team_annual' ? (
+                <div className="w-full text-center font-heading py-3 rounded-xl
+                  bg-teal/10 border border-teal/30 text-teal text-sm">
+                  Current plan
+                </div>
+              ) : (
+                <CheckoutButton
+                  plan="team_annual"
+                  label="Get started"
+                  className="w-full font-heading py-3 rounded-xl text-sm
+                    bg-dark border border-[rgba(255,255,255,0.10)] text-white
+                    hover:border-white/20 transition"
+                />
+              )}
+            </div>
+          </div>
+
+        </div>
       </div>
 
       {/* Footer note */}

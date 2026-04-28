@@ -20,7 +20,7 @@ export type CardType = 'didactic' | 'clinical'
 export type FsrsState = 'new' | 'learning' | 'review' | 'relearning'
 export type CredentialType = 'trainer' | 'educator' | 'fellow'
 export type CredentialStatus = 'active' | 'warning' | 'paused'
-export type SubscriptionPlan = 'monthly' | 'annual' | 'team'
+export type SubscriptionPlan = 'monthly' | 'annual' | 'team' | 'team_monthly' | 'team_annual'
 export type SubscriptionStatus = 'active' | 'trialing' | 'past_due' | 'canceled' | 'incomplete'
 export type ScoreType =
   | 'or_readiness'

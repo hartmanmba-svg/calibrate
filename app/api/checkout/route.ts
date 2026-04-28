@@ -38,40 +38,49 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL!
-  const admin = createAdminClient()
-
-  // ── Get or create Stripe customer ─────────────────────────────
-  const { data: existingSub } = await admin
-    .from('subscriptions')
-    .select('stripe_customer_id')
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  let customerId = existingSub?.stripe_customer_id ?? null
-
-  if (!customerId) {
-    const customer = await stripe.customers.create({
-      email: user.email,
-      metadata: { user_id: user.id },
-    })
-    customerId = customer.id
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+  if (!baseUrl) {
+    return NextResponse.json({ error: 'NEXT_PUBLIC_APP_URL is not configured' }, { status: 500 })
   }
 
-  // ── Create checkout session ───────────────────────────────────
-  const session = await stripe.checkout.sessions.create({
-    mode: 'subscription',
-    customer: customerId,
-    line_items: [{ price: priceId, quantity: 1 }],
-    subscription_data: {
-      trial_period_days: plan === 'annual' ? 7 : undefined,
-      metadata: { user_id: user.id, plan },
-    },
-    allow_promotion_codes: true,
-    success_url: `${baseUrl}/checkout/success`,
-    cancel_url: `${baseUrl}/pricing`,
-    metadata: { user_id: user.id, plan },
-  })
+  const admin = createAdminClient()
 
-  return NextResponse.json({ url: session.url })
+  try {
+    // ── Get or create Stripe customer ───────────────────────────
+    const { data: existingSub } = await admin
+      .from('subscriptions')
+      .select('stripe_customer_id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    let customerId = existingSub?.stripe_customer_id ?? null
+
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: { user_id: user.id },
+      })
+      customerId = customer.id
+    }
+
+    // ── Create checkout session ─────────────────────────────────
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      customer: customerId,
+      line_items: [{ price: priceId, quantity: 1 }],
+      subscription_data: {
+        trial_period_days: plan === 'annual' ? 7 : undefined,
+        metadata: { user_id: user.id, plan },
+      },
+      allow_promotion_codes: true,
+      success_url: `${baseUrl}/checkout/success`,
+      cancel_url: `${baseUrl}/pricing`,
+      metadata: { user_id: user.id, plan },
+    })
+
+    return NextResponse.json({ url: session.url })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Stripe error'
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
 }

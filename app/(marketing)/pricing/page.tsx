@@ -6,6 +6,15 @@ import Link from 'next/link'
 // Feature lists
 // ----------------------------------------------------------------
 
+const TEAM_FEATURES = [
+  'Everything in the individual plan',
+  'Centralized employer dashboard',
+  'Team readiness scores & benchmarks',
+  'Staff progress tracking across all modalities',
+  'Bulk seat management & invitations',
+  'Priority support',
+]
+
 const FREE_FEATURES = [
   '20 flashcards total',
   'Basic spaced repetition (FSRS)',
@@ -195,6 +204,46 @@ export default async function PricingPage() {
           </div>
         </div>
 
+      </div>
+
+      {/* Teams */}
+      <div className="w-full max-w-3xl">
+        <div className="bg-navy border border-[rgba(255,255,255,0.10)] rounded-2xl p-6 md:p-8 flex flex-col md:flex-row md:items-center gap-8">
+          <div className="flex-1">
+            <p className="font-body text-xs text-muted uppercase tracking-widest mb-3">Teams</p>
+            <div className="flex items-end gap-1 mb-1">
+              <span className="font-heading text-4xl text-white">$9.99</span>
+              <span className="font-body text-muted text-sm mb-1">/seat/mo</span>
+            </div>
+            <p className="font-body text-xs text-muted">Billed monthly per practitioner</p>
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-6">
+              {TEAM_FEATURES.map((f) => (
+                <li key={f} className="flex items-start gap-2">
+                  <CheckIcon />
+                  <span className="font-body text-sm text-muted">{f}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="md:w-48 flex flex-col gap-3">
+            {currentPlan === 'team' ? (
+              <div className="w-full text-center font-heading py-3 rounded-xl
+                bg-teal/10 border border-teal/30 text-teal text-sm">
+                Current plan
+              </div>
+            ) : (
+              <CheckoutButton
+                plan="team"
+                label="Get started"
+                className="w-full font-heading py-3 rounded-xl text-sm
+                  bg-orange hover:bg-orange/90 text-white transition"
+              />
+            )}
+            <p className="font-body text-[11px] text-muted text-center">
+              Minimum 2 seats. Cancel anytime.
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Footer note */}

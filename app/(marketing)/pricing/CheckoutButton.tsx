@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-type Plan = 'monthly' | 'annual'
+type Plan = 'monthly' | 'annual' | 'team'
 
 export function CheckoutButton({
   plan,
